@@ -45,3 +45,20 @@ next cheapest test: exercise save/restore in a fresh browser storage origin duri
 The view was returned to Orbital after the check. The visual result proves
 rendering and the bounded view-mode interaction; it does not prove successful
 browser persistence.
+
+## Standalone launcher verification — 2026-08-30
+
+- `npm start -- --port 41731` — PASS; no dependency installation required
+- `/` — `302` to `/worlds/foundation-planet/index.html`
+- Planet entry — `200 text/html`
+- vendored Three.js — `200 text/javascript`
+- missing path — `404`
+- encoded Windows traversal attempt — `403`
+- live root-route render — PASS; the redirect settled on the Planet entry and
+  visibly rendered the Caelus orbital world, survey HUD, and controls
+- bounded Surface interaction — UNKNOWN in this run; the browser controller
+  exceeded its deadline while the Planet was rendering at roughly 1 FPS, and
+  Windows fallback is prohibited for the Codex-hosted in-app browser
+- known persistence seam remains: `SAVE FAILED` / browser storage quota
+
+No Planet source file or vendored runtime file changed for this launcher rung.
