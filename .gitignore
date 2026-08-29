@@ -1,0 +1,20 @@
+# Local runtime and editor state
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+!.env.example
+bridge/bridge-token.txt
+bridge/bridge.log
+logs/workshop.log
+
+# Dependency/build output if experiments add tooling later
+node_modules/
+dist/
+coverage/
+
+# Temporary browser or capability probes
+.codex-temp-*/
+.r*-capability-probe/
+.r*-capability-scout/

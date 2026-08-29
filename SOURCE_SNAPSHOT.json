@@ -1,0 +1,25 @@
+{
+  "schema": "foundation-planet-source-snapshot/v1",
+  "status": "EXPERIMENTAL",
+  "capturedAt": "2026-08-29T02:59:19.690Z",
+  "sourceBranch": "codex/foundation-planet-wip-isolation-20260823",
+  "sourceHead": "f89fbb8890cb9f987cc0c0c5fc284c736bca8718",
+  "capturedUncommittedWorkingTree": true,
+  "includedPaths": [
+    "AGENTS.md",
+    "worlds/foundation-planet/",
+    "shared/vendor/three-r160/"
+  ],
+  "copiedSourceFileCount": 225,
+  "copiedSourceBytes": 10767467,
+  "sourceTreeSha256": "2002b4f454e3197c42b9af4a4d9e4b0952044232d0f37bfbdc2ad394a9526f50",
+  "integrityMethod": "SHA-256 over sorted UTF-8 records of relative path, byte length, and file SHA-256",
+  "copyMismatchCount": 0,
+  "claims": {
+    "sourceCopyCompleteWithinIncludedPaths": true,
+    "providerSelected": false,
+    "installed": false,
+    "promoted": false,
+    "canon": false
+  }
+}
