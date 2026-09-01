@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node --check scripts/serve.mjs && node scripts/serve-selftest.mjs && node worlds/foundation-planet/browser-module-graph-selftest.mjs"
+    "test": "node --check scripts/serve.mjs && node scripts/serve-selftest.mjs && node worlds/foundation-planet/world-state-storage-selftest.mjs && node worlds/foundation-planet/browser-module-graph-selftest.mjs"
   },
   "engines": {
     "node": ">=18"
