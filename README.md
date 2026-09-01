@@ -8,24 +8,43 @@ Status: **EXPERIMENTAL**
 
 ## Run locally
 
-Serve the repository root over HTTP, then open
-`/worlds/foundation-planet/index.html`.
+Requirements: Node.js 18 or newer. No packages need to be installed.
 
-For example:
+From a fresh clone:
 
-```powershell
-python -m http.server 4173
+```bash
+npm start
 ```
 
-Then visit:
+Then open:
 
 ```text
-http://127.0.0.1:4173/worlds/foundation-planet/index.html
+http://127.0.0.1:4173/
 ```
 
-The Planet intentionally imports the vendored Three.js module from
-`/shared/vendor/three-r160/three.module.js`, so the HTTP server must use this
-repository root rather than the Planet subdirectory.
+The root URL redirects directly into the Planet. Windows users can instead
+double-click `start-planet.cmd`; macOS and Linux users can run
+`./start-planet.sh`.
+
+Use a different port when needed:
+
+```bash
+npm start -- --port 8080
+```
+
+The built-in server intentionally serves only files inside this repository and
+includes the vendored Three.js module expected by the Planet. It has no npm
+dependencies and is intended for local experiments, not public hosting.
+
+## Verify the runnable entry seam
+
+```bash
+npm test
+```
+
+This starts the server on an ephemeral port, checks its root redirect, Planet
+entry, vendored runtime and missing-path behavior, then checks the complete
+browser module graph.
 
 ## Snapshot boundary
 
@@ -35,6 +54,7 @@ repository root rather than the Planet subdirectory.
   the Planet
 - `AGENTS.md` — inherited Workshop contribution and safety rules
 - `SOURCE_SNAPSHOT.json` — provenance and byte-integrity receipt for the copy
+- `scripts/serve.mjs` — zero-dependency standalone local server
 
 This is a source snapshot of an uncommitted cumulative WIP state, not a claim
 that the recorded source commit contains every copied file. Nothing here is
