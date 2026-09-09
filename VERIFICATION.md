@@ -141,3 +141,47 @@ Live browser verdict:
 This rung changes only the acceptance gate and its receipt. It does not change
 Planet simulation, persistence, rendering, or runtime behavior. The roughly
 1 FPS render seam and fresh-browser persistence receipt remain open.
+
+## IndexedDB checkpoint transport — 2026-09-09
+
+The first exact-head Chromium receipt measured a 91,571,254-character
+canonical checkpoint and a `QuotaExceededError` from `localStorage`. The
+world-state v2 envelope remains canonical and unchanged; only its browser
+transport moves to a versioned, local IndexedDB adapter.
+
+Focused evidence:
+
+- `npm test` — PASS: standalone server 7 assertions; retained compact-storage
+  checks; async browser-state contract 30 assertions; browser graph 8
+  assertions across 164 modules
+- async contract coverage — exact round trip, optimistic conflict rejection,
+  failed-write rollback, exact v2 transport migration, v1 migration, tamper
+  hold, write blocking while held, and backend-read failure classification
+- live Chromium journey — PASS in 1m 53s: a 91.57-million-character checkpoint
+  saved to `browser-indexeddb-v1`; baseline rendered; Life was disabled and
+  re-enabled with durable saves; reload restored the same setting and location
+  from a non-regressing revision with `restored-indexeddb-v1`
+- browser evidence — four frames plus a JSON receipt; no page errors or failed
+  document, script or stylesheet responses
+- `git diff --check` — PASS
+
+Live browser verdict:
+
+- baseline -> reversible Life action -> settled frame -> browser restart:
+  PASS
+- persistence: PASS for the measured cumulative checkpoint in Chromium
+- visible change: no intended rendering change; the HUD reports successful
+  IndexedDB-backed revisions instead of `SAVE FAILED`
+- cleanup complete: yes; the local server and Chromium process terminated
+- next cheapest check: profile the 91.57-million-character snapshot and
+  separate reconstructible receipt projections from restart-critical state
+
+Known limits: IndexedDB remains device-local and browser-origin-scoped. The
+adapter provides atomic single-record writes, not cross-device backup,
+multi-writer consensus or author authentication. Snapshot construction remains
+large and the measured roughly 1 FPS rendering seam is unchanged. Status stays
+`EXPERIMENTAL`; Mike Tobi remains the merge, promotion and `CANON` gate.
+The historical monolithic `selftest.js` is not runnable from this standalone
+copy because its required sibling `worlds/world-registry.json` is absent; the
+repository-supported `npm test` and live Chromium workflow are the executed
+gates for this lane.

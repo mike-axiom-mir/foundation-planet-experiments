@@ -639,7 +639,10 @@ import {
   geomorphicSedimentDescription, sedimentGrainTotal
 } from './core/geomorphic-sediment.mjs?v=0.63.0-r63.1';
 import { createPhysicsSectorDescriptor, physicsDescription } from './core/physics-contract.mjs';
-import { WorldStateStore, worldStateDescription } from './core/world-state.mjs';
+import {
+  browserWorldStateDescription,
+  createBrowserWorldStateStore
+} from './core/browser-world-state.mjs';
 import {
   createHostBootstrap, createHostPatch, createSectorSubscription, hostDescription, probeFoundationHost
 } from './core/host-protocol.mjs';
@@ -691,8 +694,11 @@ const TERRAIN_EXAGGERATION = 1.8;
 const UP = new THREE.Vector3(0, 1, 0);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-const worldState = new WorldStateStore({ key: SAVE_KEY, legacyKey: LEGACY_SAVE_KEY });
-const savedEnvelope = worldState.load();
+const worldState = createBrowserWorldStateStore({
+  key: SAVE_KEY,
+  legacyKey: LEGACY_SAVE_KEY
+});
+const savedEnvelope = await worldState.load();
 const saved = savedEnvelope?.payload || null;
 const state = {
   mode: saved?.mode === 'surface' ? 'surface' : 'orbit',
@@ -771,6 +777,7 @@ let faunaObjects = [];
 let seasonalWeather = null, lastWeatherQuarter = -1, lastWeatherCoordinateKey = '', lastEcosystemAge = living.ageDays;
 let conditionTransitioning = false;
 let lastPersistenceFailure = null;
+let saveQueue = Promise.resolve();
 let currentProfile = CONDITION_PROFILES[state.profileId];
 let lastFrame = performance.now(), fpsFrames = 0, fpsSince = performance.now(), lastSaveAt = performance.now();
 let currentFps = 0;
@@ -813,41 +820,47 @@ function saveObject() {
 
 function saveNow(kind = 'checkpoint', details = null) {
   let payloadCharacters = 0;
-  try {
-    const payload = saveObject();
-    payloadCharacters = JSON.stringify(payload).length;
-    worldState.commit(payload, {
-      kind, actor: 'foundation-planet', coordinate: { ...state.location }, details
-    }, { expectedRevision: worldState.descriptor().revision });
-    lastPersistenceFailure = null;
-    document.body.dataset.persistenceStatus = 'saved';
-    document.body.dataset.persistenceEncoding =
-      worldState.descriptor().storageEncoding;
-    document.body.dataset.persistencePayloadCharacters =
-      String(payloadCharacters);
-    if (ui?.persistenceRevision) {
-      ui.persistenceRevision.textContent = `r${worldState.descriptor().revision}`;
-      ui.persistenceRevision.title =
-        `Saved with ${worldState.descriptor().storageEncoding}; ${payloadCharacters.toLocaleString()} payload characters.`;
-    }
-  } catch (error) {
-    lastPersistenceFailure = {
-      name: error?.name || 'Error',
-      message: error?.message || 'unknown persistence error',
-      payloadCharacters
-    };
-    document.body.dataset.persistenceStatus = 'error';
-    document.body.dataset.persistenceError = lastPersistenceFailure.name;
-    document.body.dataset.persistencePayloadCharacters =
-      String(payloadCharacters);
-    if (ui?.persistenceRevision) {
-      ui.persistenceRevision.textContent =
-        `r${worldState.descriptor().revision} · SAVE FAILED`;
-      ui.persistenceRevision.title = lastPersistenceFailure.message;
-    }
-    if (error?.code === 'REVISION_CONFLICT') console.warn(error.message);
-    else console.error('Foundation planet save failed', error);
-  }
+  document.body.dataset.persistenceStatus = 'saving';
+
+  const operation = saveQueue
+    .then(() => new Promise(resolve => setTimeout(resolve, 0)))
+    .then(async () => {
+      const payload = saveObject();
+      payloadCharacters = JSON.stringify(payload).length;
+      document.body.dataset.persistencePayloadCharacters = String(payloadCharacters);
+      await worldState.commit(payload, {
+        kind, actor: 'foundation-planet', coordinate: { ...state.location }, details
+      }, { expectedRevision: worldState.descriptor().revision });
+      lastPersistenceFailure = null;
+      document.body.dataset.persistenceStatus = 'saved';
+      document.body.dataset.persistenceEncoding =
+        worldState.descriptor().storageEncoding;
+      delete document.body.dataset.persistenceError;
+      if (ui?.persistenceRevision) {
+        ui.persistenceRevision.textContent = `r${worldState.descriptor().revision}`;
+        ui.persistenceRevision.title =
+          `Saved with ${worldState.descriptor().backend}; ${payloadCharacters.toLocaleString()} payload characters.`;
+      }
+      return worldState.envelope;
+    }).catch(error => {
+      lastPersistenceFailure = {
+        name: error?.name || 'Error',
+        message: error?.message || 'unknown persistence error',
+        payloadCharacters
+      };
+      document.body.dataset.persistenceStatus = 'error';
+      document.body.dataset.persistenceError = lastPersistenceFailure.name;
+      if (ui?.persistenceRevision) {
+        ui.persistenceRevision.textContent =
+          `r${worldState.descriptor().revision} · SAVE FAILED`;
+        ui.persistenceRevision.title = lastPersistenceFailure.message;
+      }
+      if (error?.code === 'REVISION_CONFLICT') console.warn(error.message);
+      else console.error('Foundation planet save failed', error);
+      return null;
+    });
+  saveQueue = operation.then(() => undefined);
+  return operation;
 }
 
 function currentHostSource() {
@@ -4086,7 +4099,7 @@ function installWorldAPI() {
       floodplainGasExchange: floodplainGasExchangeDescription(),
       systemAudit: foundationSystemAuditDescription(),
       experienceProtocol: experienceProtocolDescription(),
-      physics: physicsDescription(), persistence: worldStateDescription(),
+      physics: physicsDescription(), persistence: browserWorldStateDescription(),
       host: hostDescription(), authorityKernel: authorityDescription(),
       surfaceControls: surfaceControlsDescription(),
       speciesCatalog: catalogDescription(), layerCatalog: LAYER_DEFINITIONS
@@ -6039,7 +6052,16 @@ async function start() {
   updateLayerVisibility();
   updateDiagnostics();
   installWorldAPI();
-  if (!savedEnvelope) saveNow('world-lineage-created', { version: '0.19.0' });
+  if (!savedEnvelope) {
+    await saveNow('world-lineage-created', { version: '0.19.0' });
+  } else {
+    document.body.dataset.persistenceStatus = 'saved';
+    document.body.dataset.persistenceEncoding =
+      worldState.descriptor().storageEncoding;
+    ui.persistenceRevision.textContent = `r${worldState.descriptor().revision}`;
+    ui.persistenceRevision.title =
+      `Restored from ${worldState.descriptor().backend}.`;
+  }
   await refreshSharedHost();
   updateLoading('Foundation planet online', 100);
   state.ready = true;

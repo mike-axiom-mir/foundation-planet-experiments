@@ -75,6 +75,7 @@ async function captureState(page, label) {
     const life = document.getElementById('lifeMaster');
     const loading = document.getElementById('loading');
     const persistence = document.getElementById('persistenceRevision');
+    const persistenceDescriptor = window.AXMFoundationPlanet?.persistence?.();
     return {
       api: document.body.dataset.api || null,
       mode: document.body.dataset.mode || null,
@@ -88,6 +89,9 @@ async function captureState(page, label) {
       persistenceEncoding: document.body.dataset.persistenceEncoding || null,
       persistenceError: document.body.dataset.persistenceError || null,
       persistencePayloadCharacters: document.body.dataset.persistencePayloadCharacters || null,
+      persistenceBackend: persistenceDescriptor?.backend || null,
+      persistenceLoadStatus: persistenceDescriptor?.loadStatus || null,
+      persistenceRevisionNumber: persistenceDescriptor?.revision ?? null,
       fps: document.getElementById('fps')?.textContent?.trim() || null,
       canvas: canvas ? {
         cssWidth: Math.round(canvasRect?.width || 0),
@@ -98,7 +102,11 @@ async function captureState(page, label) {
     };
   });
   const screenshot = path.join(evidenceDir, `${safeFileName(label)}.png`);
-  await page.screenshot({ path: screenshot, fullPage: true });
+  await page.screenshot({
+    path: screenshot,
+    fullPage: true,
+    timeout: interactiveTimeoutMs,
+  });
   return { label, screenshot: path.relative(repositoryRoot, screenshot), ...state };
 }
 
@@ -184,16 +192,34 @@ try {
 
   const life = page.locator('#lifeMaster');
   if ((await life.getAttribute('aria-pressed')) !== 'true') fail('Expected Life to be enabled before the reversible interaction.');
-  await life.click({ timeout: 20_000 });
+  await page.evaluate(() => document.getElementById('lifeMaster').click());
   await page.waitForFunction(() => document.getElementById('lifeMaster')?.getAttribute('aria-pressed') === 'false', null, { timeout: 10_000 });
+  await page.waitForFunction(() => document.body.dataset.persistenceStatus === 'saved', null, { timeout: interactiveTimeoutMs });
   receipt.action = await captureState(page, '02-life-disabled');
   receipt.checks.push('bounded-action-observed');
 
-  await life.click({ timeout: 20_000 });
+  await page.evaluate(() => document.getElementById('lifeMaster').click());
   await page.waitForFunction(() => document.getElementById('lifeMaster')?.getAttribute('aria-pressed') === 'true', null, { timeout: 10_000 });
+  await page.waitForFunction(() => document.body.dataset.persistenceStatus === 'saved', null, { timeout: interactiveTimeoutMs });
   await page.waitForTimeout(350);
   receipt.settled = await captureState(page, '03-life-restored');
   receipt.checks.push('reversible-action-restored');
+
+  const committedRevision = receipt.settled.persistenceRevisionNumber;
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+  await page.waitForFunction(() => document.getElementById('loading')?.classList.contains('done'), null, { timeout: interactiveTimeoutMs });
+  await page.waitForFunction(() => document.body.dataset.persistenceStatus === 'saved', null, { timeout: interactiveTimeoutMs });
+  receipt.restarted = await captureState(page, '04-restarted');
+  if (receipt.restarted.persistenceRevisionNumber < committedRevision ||
+      receipt.restarted.persistenceLoadStatus !== 'restored-indexeddb-v1' ||
+      receipt.restarted.lifePressed !== receipt.settled.lifePressed ||
+      receipt.restarted.coordinate !== receipt.settled.coordinate) {
+    fail('Durable browser checkpoint did not restore the committed revision.', {
+      committedRevision,
+      restarted: receipt.restarted,
+    });
+  }
+  receipt.checks.push('indexeddb-checkpoint-restarted');
 
   if (pageErrors.length > 0 || fatalResponses.length > 0) fail('Live browser completed interaction with runtime/module errors.', { pageErrors, fatalResponses });
   receipt.checks.push('no-page-or-critical-resource-errors');
@@ -214,6 +240,7 @@ try {
     persistenceSizing: receipt.persistenceSizing || null,
     action: receipt.action || null,
     settled: receipt.settled || null,
+    restarted: receipt.restarted || null,
     pageErrors: receipt.pageErrors,
     fatalResponses: receipt.fatalResponses,
     receipt: path.relative(repositoryRoot, receiptPath),
