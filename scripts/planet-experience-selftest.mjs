@@ -9,6 +9,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const evidenceDir = path.join(repositoryRoot, '.codex-temp-planet-experience');
 const serverReadyTimeoutMs = 10_000;
 const interactiveTimeoutMs = 90_000;
+const syntheticGamepadHoldMs = 1_600;
 
 function fail(message, details = {}) {
   const error = new Error(message);
@@ -66,9 +67,12 @@ async function stopServer(child) {
 
 async function pressGamepad(page, index) {
   await page.evaluate(buttonIndex => window.__axmExperienceTestPad?.setButton(buttonIndex, true), index);
-  await page.waitForTimeout(180);
+  // The current Planet baseline can render near 1 fps in CI. Hold the synthetic
+  // button long enough that the browser's main-thread polling seam is actually
+  // observable instead of pretending a short-tap latency guarantee exists.
+  await page.waitForTimeout(syntheticGamepadHoldMs);
   await page.evaluate(buttonIndex => window.__axmExperienceTestPad?.setButton(buttonIndex, false), index);
-  await page.waitForTimeout(180);
+  await page.waitForTimeout(400);
 }
 
 async function readExperience(page) {
@@ -87,6 +91,7 @@ async function readExperience(page) {
       activeMode: document.querySelector('.mode-button.active')?.dataset?.mode || null,
       coordinate: document.getElementById('coordinate')?.textContent?.trim() || null,
       biome: document.getElementById('biome')?.textContent?.trim() || null,
+      fps: document.getElementById('fps')?.textContent?.trim() || null,
       viewport: { width: innerWidth, height: innerHeight },
       documentWidth: document.documentElement.scrollWidth,
       mission: missionRect ? {
@@ -110,6 +115,7 @@ const receipt = {
   contract: 'AXM Foundation Planet survey experience gate v1',
   verdict: 'UNKNOWN',
   interactiveTimeoutMs,
+  syntheticGamepadHoldMs,
   checks: [],
   pageErrors,
   fatalResponses,
@@ -187,6 +193,20 @@ try {
   await page.waitForFunction(() => document.getElementById('surveyExperienceMessage')?.textContent?.includes('LIFE → ON'), null, { timeout: 10_000 });
   receipt.checks.push('keyboard-action-reversible');
 
+  receipt.gamepadProbe = await page.evaluate(() => {
+    const pads = navigator.getGamepads?.() || [];
+    const pad = [...pads].find(candidate => candidate?.connected);
+    return {
+      count: pads.length,
+      connected: Boolean(pad?.connected),
+      id: pad?.id || null,
+      mapping: pad?.mapping || null,
+      buttons: pad?.buttons?.length || 0,
+    };
+  });
+  if (!receipt.gamepadProbe.connected || receipt.gamepadProbe.buttons < 16) fail('Deterministic gamepad seam was not visible to the real browser surface.', receipt.gamepadProbe);
+  receipt.checks.push('deterministic-gamepad-seam-visible');
+
   await pressGamepad(page, 3);
   await page.waitForFunction(() => document.getElementById('lifeMaster')?.getAttribute('aria-pressed') === 'false', null, { timeout: 10_000 });
   await page.waitForFunction(() => document.getElementById('surveyInputChip')?.textContent === 'GAMEPAD', null, { timeout: 10_000 });
@@ -245,6 +265,7 @@ try {
     checks: receipt.checks,
     baseline: receipt.baseline || null,
     keyboardOff: receipt.keyboardOff || null,
+    gamepadProbe: receipt.gamepadProbe || null,
     gamepadOff: receipt.gamepadOff || null,
     surfaceMode: receipt.surfaceMode || null,
     mobile: receipt.mobile || null,
