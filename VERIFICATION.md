@@ -101,3 +101,43 @@ Truth boundary:
 - No simulation, world-generation, stepping, or rendering behavior changed.
 - The 2026-08-29 source snapshot receipt remains historical provenance for the
   original copy; this section records the later experimental source change.
+
+## Portable browser-path gate — 2026-09-09
+
+The browser-module graph gate previously measured absolute paths in the active
+checkout. In this 61-character-deep checkout it rejected the unchanged graph at
+266 characters, even though the same graph had passed at 248 characters in the
+original snapshot environment. The gate now checks repository containment and
+projects repository-relative module paths onto a configurable Windows install
+root (`AXM_WINDOWS_INSTALL_ROOT`, default `C:\AXM_WORKSHOP`).
+
+Focused evidence:
+
+- `node worlds/foundation-planet/browser-module-graph-selftest.mjs` — PASS,
+  8 assertions, 163 modules, maximum relative path 204, projected default
+  Windows path 220, legacy install-root budget 54 characters
+- the same command with an intentionally overlong `AXM_WINDOWS_INSTALL_ROOT` —
+  expected rejection at a 294-character projected path; a relative configured
+  root was also rejected before projection
+- `npm test` — PASS: server 7 assertions; storage 11 assertions with the compact
+  64,534-byte fixture 19.7% smaller than the 80,348-byte legacy wrapper; browser
+  graph 8 assertions across 163 modules
+- `git diff --check` — PASS
+
+Live browser verdict:
+
+- local route `http://127.0.0.1:4173/` — UNKNOWN; the required browser backend
+  rejected loopback navigation before the Planet entry loaded
+- public immutable build route for commit `0583784724e994244257789c23dc89fecb5b8ece`
+  — UNKNOWN; the browser backend also rejected the CDN route before entry
+- baseline frame, reversible action, and settled frame — not observed in this
+  run because neither route crossed the browser transport boundary
+- browser console and interaction result — UNKNOWN, not inferred from the
+  passing source checks or the historical visual receipt above
+- cleanup complete: yes; the local server and browser tab were closed
+- next cheapest live check: open the standalone launcher from a browser that can
+  reach its loopback origin, then record Orbital baseline -> Surface -> Orbital
+
+This rung changes only the acceptance gate and its receipt. It does not change
+Planet simulation, persistence, rendering, or runtime behavior. The roughly
+1 FPS render seam and fresh-browser persistence receipt remain open.

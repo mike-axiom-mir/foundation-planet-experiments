@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 const planetRoot = path.dirname(fileURLToPath(import.meta.url));
 const workshopRoot = path.dirname(path.dirname(planetRoot));
 const entryPath = path.join(planetRoot, 'app.mjs');
+const windowsInstallRoot = process.env.AXM_WINDOWS_INSTALL_ROOT || 'C:\\AXM_WORKSHOP';
+const windowsLegacyMaxPath = 260;
 const seen = new Set();
 const missing = [];
 
@@ -44,7 +46,15 @@ function visit(modulePath) {
 visit(entryPath);
 
 const activePaths = [...seen].sort();
-const maximumPathLength = Math.max(...activePaths.map(value => value.length));
+const activeRelativePaths = activePaths.map(value => path.relative(workshopRoot, value));
+const escapedPaths = activeRelativePaths.filter(value =>
+  value === '..' || value.startsWith(`..${path.sep}`) || path.isAbsolute(value));
+const projectedWindowsPaths = activeRelativePaths.map(value =>
+  path.win32.join(windowsInstallRoot, ...value.split(path.sep)));
+const longestProjectedWindowsPath = projectedWindowsPaths.reduce((longest, value) =>
+  value.length > longest.length ? value : longest, '');
+const maximumRelativePathLength = Math.max(...activeRelativePaths.map(value => value.length));
+const windowsInstallRootBudget = windowsLegacyMaxPath - maximumRelativePathLength - 2;
 const shortR117 = path.join(planetRoot, 'core',
   'r117-policy-delegation-verification-response-signer-key-binding-request.mjs');
 const shortR118 = path.join(planetRoot, 'core',
@@ -80,8 +90,13 @@ assert.ok(activePaths.length >= 100,
   'the browser entry exposes a nontrivial local module graph');
 assert.deepEqual(missing, [],
   'every browser-reachable local module exists');
-assert.ok(maximumPathLength < 260,
-  `every browser-reachable Windows path stays below 260 characters; maximum was ${maximumPathLength}`);
+assert.ok(path.win32.isAbsolute(windowsInstallRoot),
+  `AXM_WINDOWS_INSTALL_ROOT must be an absolute Windows path; received ${windowsInstallRoot}`);
+assert.deepEqual(escapedPaths, [],
+  'every browser-reachable module remains inside the standalone repository');
+assert.ok(longestProjectedWindowsPath.length < windowsLegacyMaxPath,
+  `browser modules fit the configured Windows install root ${windowsInstallRoot}; ` +
+  `maximum projected path was ${longestProjectedWindowsPath.length}`);
 assert.ok(activePaths.includes(shortR117) && activePaths.includes(shortR118),
   'the browser graph uses the short-path R117 and R118 compatibility sources');
 assert.ok(compatibilityPairs.every(([historicalName]) =>
@@ -92,4 +107,7 @@ assert.ok(compatibilityPairs.every(([historicalName, shortName]) =>
     normalizedCompatibilitySource(shortName)),
   'the short browser-path sources remain semantically identical copies of the historical sources');
 
-console.log(`foundation planet browser module graph selftest: PASS (6 assertions; ${activePaths.length} modules; maximum path ${maximumPathLength})`);
+console.log(`foundation planet browser module graph selftest: PASS (8 assertions; ` +
+  `${activePaths.length} modules; maximum relative path ${maximumRelativePathLength}; ` +
+  `configured Windows path ${longestProjectedWindowsPath.length}; ` +
+  `install-root budget ${windowsInstallRootBudget})`);
