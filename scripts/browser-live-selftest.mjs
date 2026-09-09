@@ -93,6 +93,7 @@ async function captureState(page, label) {
     const canvasRect = canvas?.getBoundingClientRect();
     const life = document.getElementById('lifeMaster');
     const loading = document.getElementById('loading');
+    const persistence = document.getElementById('persistenceRevision');
     return {
       api: document.body.dataset.api || null,
       mode: document.body.dataset.mode || null,
@@ -100,7 +101,13 @@ async function captureState(page, label) {
       lifePressed: life?.getAttribute('aria-pressed') || null,
       biome: document.getElementById('biome')?.textContent?.trim() || null,
       coordinate: document.getElementById('coordinate')?.textContent?.trim() || null,
-      persistenceRevision: document.getElementById('persistenceRevision')?.textContent?.trim() || null,
+      persistenceRevision: persistence?.textContent?.trim() || null,
+      persistenceTitle: persistence?.title || null,
+      persistenceStatus: document.body.dataset.persistenceStatus || null,
+      persistenceEncoding: document.body.dataset.persistenceEncoding || null,
+      persistenceError: document.body.dataset.persistenceError || null,
+      persistencePayloadCharacters:
+        document.body.dataset.persistencePayloadCharacters || null,
       fps: document.getElementById('fps')?.textContent?.trim() || null,
       canvas: canvas ? {
         cssWidth: Math.round(canvasRect?.width || 0),
@@ -184,11 +191,15 @@ try {
   receipt.checks.push('render-canvas-sized');
 
   const baseline = await captureState(page, '01-baseline');
+  receipt.baseline = baseline;
+  receipt.checks.push('baseline-frame-captured');
   if (!baseline.api || baseline.biome === 'Scanning…' || !baseline.coordinate) {
     fail('Planet exposed its API but did not settle the primary survey readout.', baseline);
   }
-  receipt.baseline = baseline;
-  receipt.checks.push('baseline-frame-captured');
+  if (baseline.persistenceStatus === 'error') {
+    fail('Planet reached an interactive frame but its canonical save failed.', baseline);
+  }
+  receipt.checks.push('baseline-persistence-healthy');
 
   const life = page.locator('#lifeMaster');
   if ((await life.getAttribute('aria-pressed')) !== 'true') {
