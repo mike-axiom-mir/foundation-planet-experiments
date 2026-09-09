@@ -1,0 +1,43 @@
+name: Planet browser truth gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-browser:
+    name: Live Chromium interaction
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact PR state
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run source and standalone gates first
+        run: npm test
+
+      - name: Install pinned browser probe dependency
+        run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+
+      - name: Install Chromium runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Exercise the real browser surface
+        run: node scripts/browser-live-selftest.mjs
+
+      - name: Preserve browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: planet-browser-truth-${{ github.run_id }}
+          path: .codex-temp-browser-truth/
+          if-no-files-found: error
+          retention-days: 14
