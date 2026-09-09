@@ -94,8 +94,15 @@
       <div class="layer-list" id="layerList"></div>
     </section>
 
-    <section class="diagnostic-section">
-      <div class="section-label">Streaming diagnostics</div>
+    <details class="diagnostic-section" id="diagnostics">
+      <summary>
+        <span>Deep system diagnostics</span>
+        <strong id="diagnosticSummary">On demand · — fps</strong>
+      </summary>
+      <div class="diagnostic-intro">
+        <p id="diagnosticStatus" aria-live="polite">A truthful snapshot is captured when the planet finishes loading.</p>
+        <button id="refreshDiagnostics" type="button">Refresh snapshot</button>
+      </div>
       <div class="diag-grid">
         <span>Planet radius</span><strong>6,371 km</strong>
         <span>Loaded sector</span><strong id="sectorSize">120 × 120 km</strong>
@@ -188,7 +195,7 @@
         <div><span>Local community</span><strong id="speciesCount">0 species</strong></div>
         <div class="species-list" id="speciesList"></div>
       </div>
-    </section>
+    </details>
   </aside>
 
   <div class="mission glass">
