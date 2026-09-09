@@ -39,5 +39,6 @@ jobs:
         with:
           name: planet-browser-truth-${{ github.run_id }}
           path: .codex-temp-browser-truth/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
