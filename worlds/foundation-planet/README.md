@@ -2,7 +2,12 @@
 
 Caelus is the large-world sibling of the AXM Living Globe. Its logical radius is 6,371 km, close to an Earth-scale terrestrial planet. It is intended to become the neutral ground planet beneath many future games. It does not replace the original Living Globe and does not give any game ownership of world state.
 
-Open `/worlds/foundation-planet/` through the Workshop server. Run `node worlds/foundation-planet/selftest.js` before promotion.
+Open `/worlds/foundation-planet/` through the Workshop server. Run
+`node worlds/foundation-planet/selftest.js` before promotion. In this standalone
+snapshot that command verifies the included Planet body and explicitly reports
+Workshop integration as skipped. Set `AXM_WORKSHOP_ROOT` to a complete Workshop
+checkout and add `--require-workshop-integration` when the registry, server MIME,
+and named-world operation seams must also be proven.
 
 ## First serious rung
 

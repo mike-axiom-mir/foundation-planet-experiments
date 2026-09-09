@@ -25,6 +25,31 @@ Then visit:
 http://127.0.0.1:4173/worlds/foundation-planet/index.html
 ```
 
+## Verify locally
+
+The Planet selftest is intentionally expensive, but it can now start from this
+standalone repository without pretending that excluded Workshop integration
+files were checked:
+
+```powershell
+node worlds/foundation-planet/selftest.js
+```
+
+When the Planet checks complete, the final receipt reports their `PASS` and the
+separate Workshop integration as `SKIPPED`. To require that integration, point
+at a complete AXM Workshop checkout; an incomplete or incorrect root fails
+closed before the expensive model checks begin:
+
+```powershell
+$env:AXM_WORKSHOP_ROOT = "C:\path\to\AXM_WORKSHOP"
+node worlds/foundation-planet/selftest.js --require-workshop-integration
+```
+
+The standalone path covers the included Planet model, contracts, migrations,
+deterministic studies, and browser wiring at source level. It is not browser
+render evidence, scientific validation, or evidence for the excluded Workshop
+server/registry boundary.
+
 The Planet intentionally imports the vendored Three.js module from
 `/shared/vendor/three-r160/three.module.js`, so the HTTP server must use this
 repository root rather than the Planet subdirectory.
