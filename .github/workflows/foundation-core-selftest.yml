@@ -1,4 +1,4 @@
-name: Foundation core truth gate
+name: Foundation selftest boundary
 
 on:
   pull_request:
