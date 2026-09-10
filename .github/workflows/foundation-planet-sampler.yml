@@ -23,11 +23,15 @@ jobs:
       - name: Check package source syntax
         run: |
           node --check packages/foundation-planet-sampler/index.mjs
+          node --check packages/foundation-planet-sampler/migration.mjs
           node --check packages/foundation-planet-sampler/cli.mjs
           node --check tools/prepare-foundation-planet-sampler.mjs
           node --check tests/foundation-planet-sampler-package.test.mjs
           node --check tests/foundation-planet-sampler-strict-json.test.mjs
+          node --check tests/foundation-planet-sampler-migration.test.mjs
       - name: Prove clean offline package consumption
         run: node --test tests/foundation-planet-sampler-package.test.mjs
       - name: Prove strict CLI JSON admission
         run: node --test tests/foundation-planet-sampler-strict-json.test.mjs
+      - name: Prove legacy receipt migration lineage
+        run: node --test tests/foundation-planet-sampler-migration.test.mjs
