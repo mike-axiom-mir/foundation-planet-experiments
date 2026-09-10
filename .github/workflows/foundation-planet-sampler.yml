@@ -26,5 +26,8 @@ jobs:
           node --check packages/foundation-planet-sampler/cli.mjs
           node --check tools/prepare-foundation-planet-sampler.mjs
           node --check tests/foundation-planet-sampler-package.test.mjs
+          node --check tests/foundation-planet-sampler-strict-json.test.mjs
       - name: Prove clean offline package consumption
         run: node --test tests/foundation-planet-sampler-package.test.mjs
+      - name: Prove strict CLI JSON admission
+        run: node --test tests/foundation-planet-sampler-strict-json.test.mjs
