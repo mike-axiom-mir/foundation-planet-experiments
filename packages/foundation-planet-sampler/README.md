@@ -35,6 +35,7 @@ foundation-planet-sampler verify-legacy legacy-receipt.json
 foundation-planet-sampler describe-migration
 foundation-planet-sampler migrate legacy-receipt.json > migration.json
 foundation-planet-sampler verify-migration migration.json
+foundation-planet-sampler review-migration migration.json > migration-review.html
 ```
 
 CLI JSON input is capped at 1 MiB and rejects duplicate object member names at
@@ -83,3 +84,21 @@ state, replace source evidence, publish a package, or grant CANON authority. A
 caller may retain the migration digest and pass it to
 `verifySampleReceiptMigration(capsule, expectedDigest)` to reject substitution
 by another internally valid capsule.
+
+## Human-readable migration review
+
+Package version `0.3.1` adds a presentation-only review realization over that
+same migration capsule. `review-migration` first passes the supplied capsule
+through the production deterministic migration verifier and only then emits one
+self-contained HTML file. The page shows the retained source and derived target
+identities, exact coordinate identity changes, exact source/target/migration
+digests, expandable raw evidence, and the authority ceiling in human-readable
+form.
+
+The review file has no external runtime resources and needs no network, account,
+cloud service, or model. It cannot migrate a receipt, replace source evidence,
+apply Planet/game state, approve a release, merge work, or grant CANON. Its copy
+controls hand out exact SHA-256 values only; callers that care about substitution
+must still compare the migration digest with a separately retained expected
+identity. The same renderer is available as the optional
+`axm-foundation-planet-sampler/review` export.
