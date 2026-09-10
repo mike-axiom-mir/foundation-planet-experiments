@@ -1,7 +1,7 @@
 {
   "schema": "axm.foundation-planet.sampler-capability/v1",
   "id": "axm.foundation-planet.coordinate-sampler",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "status": "EXPERIMENTAL",
   "runtime": {
     "kind": "node-esm",
@@ -30,6 +30,14 @@
   },
   "model": {
     "coordinateSystem": "WGS84-like spherical latitude/longitude with local tangent sectors",
+    "coordinateIdentity": {
+      "angularUnit": "decimal-degrees",
+      "latitudeRange": "[-90, 90]",
+      "longitudeRange": "[-180, 180)",
+      "antimeridianLongitude": -180,
+      "poleLongitude": 0,
+      "signedZero": "positive"
+    },
     "deterministic": true,
     "procedural": true,
     "scientificModel": false

@@ -13,9 +13,18 @@ export const SAMPLE_RECEIPT_SCHEMA = 'axm.foundation-planet.sample-receipt/v1';
 export const SAMPLE_VERIFICATION_SCHEMA = 'axm.foundation-planet.sample-verification/v1';
 
 const CAPABILITY_ID = 'axm.foundation-planet.coordinate-sampler';
-const CAPABILITY_VERSION = '1.0.0';
+const CAPABILITY_VERSION = '1.1.0';
 const MAX_COORDINATES = 256;
 const MAX_COORDINATE_ID_CHARACTERS = 128;
+
+const COORDINATE_IDENTITY = Object.freeze({
+  angularUnit: 'decimal-degrees',
+  latitudeRange: '[-90, 90]',
+  longitudeRange: '[-180, 180)',
+  antimeridianLongitude: -180,
+  poleLongitude: 0,
+  signedZero: 'positive',
+});
 
 const own = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
@@ -58,7 +67,11 @@ function normalizeCoordinate(value, index) {
   if (!Number.isFinite(value.lon) || value.lon < -180 || value.lon > 180) {
     throw new RangeError(`coordinates[${index}].lon must be finite and between -180 and 180`);
   }
-  const coordinate = { lat: value.lat, lon: value.lon };
+  const lat = Object.is(value.lat, -0) ? 0 : value.lat;
+  let lon = Object.is(value.lon, -0) ? 0 : value.lon;
+  if (lon === 180) lon = -180;
+  if (Math.abs(lat) === 90) lon = 0;
+  const coordinate = { lat, lon };
   if (own(value, 'id')) {
     if (typeof value.id !== 'string' || value.id.length < 1 || value.id.length > MAX_COORDINATE_ID_CHARACTERS || /[\u0000-\u001f\u007f]/.test(value.id)) {
       throw new TypeError(`coordinates[${index}].id must be 1-${MAX_COORDINATE_ID_CHARACTERS} printable characters`);
@@ -105,6 +118,7 @@ export function describeCapability() {
     },
     model: {
       coordinateSystem: model.coordinateSystem,
+      coordinateIdentity: COORDINATE_IDENTITY,
       deterministic: model.deterministic,
       procedural: model.procedural,
       scientificModel: model.scientificModel,

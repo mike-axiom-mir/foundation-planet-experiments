@@ -79,6 +79,15 @@ test('clean offline consumer can sample and fully replay receipts', async () => 
     assert.equal(first.samples.length, 2);
     assert.equal(verifySampleReceipt(first).valid, true);
     assert.equal(describeCapability().authority.canonical, false);
+    assert.equal(describeCapability().version, '1.1.0');
+    assert.deepEqual(describeCapability().model.coordinateIdentity, {
+      angularUnit: 'decimal-degrees',
+      latitudeRange: '[-90, 90]',
+      longitudeRange: '[-180, 180)',
+      antimeridianLongitude: -180,
+      poleLongitude: 0,
+      signedZero: 'positive',
+    });
 
     const at = (lat, lon) => createSampleReceipt({
       schema: 'axm.foundation-planet.sample-request/v1',

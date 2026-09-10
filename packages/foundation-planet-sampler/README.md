@@ -48,3 +48,18 @@ The package fixes the world identity and seed to Caelus. It accepts only the
 five declared condition profiles and at most 256 coordinates per request. It
 never writes Planet state, creates a hosted world, uses the network, or grants
 authority. Registry publication remains blocked by `private: true`.
+
+## Canonical coordinate identity
+
+The sampler treats coordinates as spherical locations rather than raw pairs of
+numbers. It normalizes the antimeridian to longitude `-180`, longitude at both
+poles to `0`, and signed zero to positive zero before sampling, hashing, or
+returning a receipt. Thus equivalent locations have one request identity and
+one deterministic sample. The machine-readable capability descriptor exposes
+the same rules under `model.coordinateIdentity`.
+
+This normalization is capability version `1.1.0` / package version `0.2.0`.
+Receipts still use the v1 request and receipt shapes, while the embedded
+capability version makes the changed normalization semantics explicit. Older
+`1.0.0` receipts are evidence from a different sampler behavior and are not
+silently reinterpreted.
