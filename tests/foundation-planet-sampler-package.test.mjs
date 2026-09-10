@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -55,7 +56,7 @@ test('clean offline consumer can sample and fully replay receipts', async () => 
     [
       'LICENSE', 'PROVENANCE.json', 'README.md', 'THIRD_PARTY.json', 'capability.json',
       'cli.mjs', 'index.mjs', 'migration-capability.json', 'migration.mjs', 'package.json',
-      'vendor/geophysics.mjs', 'vendor/planet-model.mjs',
+      'review.mjs', 'vendor/geophysics.mjs', 'vendor/planet-model.mjs',
     ],
   );
 
@@ -67,6 +68,7 @@ test('clean offline consumer can sample and fully replay receipts', async () => 
     import { createHash } from 'node:crypto';
     import { createSampleReceipt, describeCapability, verifySampleReceipt } from 'axm-foundation-planet-sampler';
     import { describeMigrationCapability } from 'axm-foundation-planet-sampler/migration';
+    import { renderSampleReceiptMigrationReview } from 'axm-foundation-planet-sampler/review';
     const request = {
       schema: 'axm.foundation-planet.sample-request/v1',
       profile: 'temperate',
@@ -83,6 +85,7 @@ test('clean offline consumer can sample and fully replay receipts', async () => 
     assert.equal(describeCapability().authority.canonical, false);
     assert.equal(describeCapability().version, '1.1.0');
     assert.deepEqual(describeMigrationCapability().versions, { source: '1.0.0', target: '1.1.0' });
+    assert.equal(typeof renderSampleReceiptMigrationReview, 'function');
     assert.deepEqual(describeCapability().model.coordinateIdentity, {
       angularUnit: 'decimal-degrees',
       latitudeRange: '[-90, 90]',
