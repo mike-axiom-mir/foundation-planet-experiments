@@ -39,7 +39,10 @@ jobs:
       - name: Run focused boundary regressions
         run: python -m unittest discover -s tests -p 'test_third_party_ledger.py' -v
       - name: Verify repository vendored provenance
-        run: python tools/verify_third_party_ledger.py | tee third-party-ledger-verification.json
+        shell: bash
+        run: |
+          set -o pipefail
+          python tools/verify_third_party_ledger.py | tee third-party-ledger-verification.json
       - name: Assert receipt authority stays closed
         run: |
           python - <<'PY'
