@@ -82,6 +82,9 @@ test('installed CLI rejects duplicate JSON object members before sample or recei
     ['duplicate receipt schema', duplicateReceiptSchema, 'schema'],
   ]) {
     assert.notEqual(result.status, 0, `${label} was silently accepted\nstdout: ${result.stdout}`);
-    assert.match(result.stderr, new RegExp(`duplicate JSON object key \\\"${key}\\\"`), `${label} did not report the ambiguous key`);
+    const error = JSON.parse(result.stderr.trim());
+    assert.equal(error.schema, 'axm.foundation-planet.sampler-error/v1');
+    assert.equal(error.error, 'SyntaxError');
+    assert.equal(error.message, `duplicate JSON object key "${key}"`, `${label} did not report the ambiguous key`);
   }
 });
