@@ -14,6 +14,7 @@ import {
   describeMigrationCapability,
   verifySampleReceiptMigration,
 } from './migration.mjs';
+import { renderSampleReceiptMigrationReview } from './review.mjs';
 
 const MAX_INPUT_BYTES = 1_048_576;
 
@@ -158,11 +159,12 @@ async function main(argv) {
   if (command === 'verify-legacy') return verifyLegacySampleReceipt(await readBoundedJson(source));
   if (command === 'migrate') return createSampleReceiptMigration(await readBoundedJson(source));
   if (command === 'verify-migration') return verifySampleReceiptMigration(await readBoundedJson(source));
-  throw new TypeError('usage: foundation-planet-sampler describe | sample [request.json|-] | verify [receipt.json|-] | verify-legacy [legacy-receipt.json|-] | describe-migration | migrate [legacy-receipt.json|-] | verify-migration [migration.json|-]');
+  if (command === 'review-migration') return renderSampleReceiptMigrationReview(await readBoundedJson(source));
+  throw new TypeError('usage: foundation-planet-sampler describe | sample [request.json|-] | verify [receipt.json|-] | verify-legacy [legacy-receipt.json|-] | describe-migration | migrate [legacy-receipt.json|-] | verify-migration [migration.json|-] | review-migration [migration.json|-]');
 }
 
 main(process.argv.slice(2)).then(
-  result => process.stdout.write(`${JSON.stringify(result)}\n`),
+  result => process.stdout.write(typeof result === 'string' ? result : `${JSON.stringify(result)}\n`),
   error => {
     process.stderr.write(`${JSON.stringify({
       schema: 'axm.foundation-planet.sampler-error/v1',
