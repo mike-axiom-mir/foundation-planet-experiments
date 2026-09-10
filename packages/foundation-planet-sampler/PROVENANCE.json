@@ -1,0 +1,18 @@
+{
+  "schema": "axm.foundation-planet.sampler-provenance/v1",
+  "repository": "mike-axiom-mir/foundation-planet-experiments",
+  "revision": "b838933c0cf13b03add15bad9757a75a380d2173",
+  "license": "Apache-2.0",
+  "sources": [
+    {
+      "path": "worlds/foundation-planet/core/planet-model.mjs",
+      "packagePath": "vendor/planet-model.mjs",
+      "sha256": "181f5ebf7734504a4025591a4a4b237f8fb12799ce28ed083835e2fad4c6b29a"
+    },
+    {
+      "path": "worlds/foundation-planet/core/geophysics.mjs",
+      "packagePath": "vendor/geophysics.mjs",
+      "sha256": "553717ec10ccd0cd6c0b2bcbb6c0ebe17bdf3662888ff98a21a00e035e3c46cd"
+    }
+  ]
+}

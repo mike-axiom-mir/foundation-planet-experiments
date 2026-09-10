@@ -1,0 +1,48 @@
+{
+  "schema": "axm.foundation-planet.sampler-capability/v1",
+  "id": "axm.foundation-planet.coordinate-sampler",
+  "version": "1.0.0",
+  "status": "EXPERIMENTAL",
+  "runtime": {
+    "kind": "node-esm",
+    "node": ">=20",
+    "networkRequired": false
+  },
+  "operations": [
+    "describe",
+    "sample",
+    "verify"
+  ],
+  "requestSchema": "axm.foundation-planet.sample-request/v1",
+  "receiptSchema": "axm.foundation-planet.sample-receipt/v1",
+  "verificationSchema": "axm.foundation-planet.sample-verification/v1",
+  "world": {
+    "id": "world.axm.foundation-planet",
+    "seed": 18470219,
+    "modelSchema": "axm.foundation-planet.model/v1",
+    "profiles": [
+      "temperate",
+      "verdant",
+      "arid",
+      "glacial",
+      "barren"
+    ]
+  },
+  "model": {
+    "coordinateSystem": "WGS84-like spherical latitude/longitude with local tangent sectors",
+    "deterministic": true,
+    "procedural": true,
+    "scientificModel": false
+  },
+  "limits": {
+    "maxInputBytes": 1048576,
+    "maxCoordinates": 256,
+    "maxCoordinateIdCharacters": 128
+  },
+  "authority": {
+    "appliesState": false,
+    "createsHostedWorld": false,
+    "canonical": false,
+    "scientificModel": false
+  }
+}

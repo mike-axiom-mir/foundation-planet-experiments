@@ -1,0 +1,30 @@
+name: Foundation Planet sampler package
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  package-consumer:
+    strategy:
+      matrix:
+        node: ['20', '22']
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Check package source syntax
+        run: |
+          node --check packages/foundation-planet-sampler/index.mjs
+          node --check packages/foundation-planet-sampler/cli.mjs
+          node --check tools/prepare-foundation-planet-sampler.mjs
+          node --check tests/foundation-planet-sampler-package.test.mjs
+      - name: Prove clean offline package consumption
+        run: node --test tests/foundation-planet-sampler-package.test.mjs

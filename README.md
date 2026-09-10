@@ -29,6 +29,26 @@ The Planet intentionally imports the vendored Three.js module from
 `/shared/vendor/three-r160/three.module.js`, so the HTTP server must use this
 repository root rather than the Planet subdirectory.
 
+## Reuse the deterministic coordinate sampler
+
+Consumers that need terrain, biome, ecology, and geology samples do not need to
+copy or launch the complete Planet. Build the bounded private-by-default package:
+
+```powershell
+npm pack ./packages/foundation-planet-sampler --pack-destination ./dist
+```
+
+The resulting offline tarball exposes an ESM API and the
+`foundation-planet-sampler describe|sample|verify` command. Packaging verifies
+the exact source digests before vendoring only `planet-model.mjs` and its
+`geophysics.mjs` dependency. Sample receipts are SHA-256 sealed and fully
+replayed during verification. See
+[`packages/foundation-planet-sampler/README.md`](packages/foundation-planet-sampler/README.md).
+
+This is a read-only experimental sampling seam. It creates no hosted world,
+writes no Planet state, uses no network, and provides no scientific, merge, or
+CANON authority.
+
 ## Snapshot boundary
 
 - `worlds/foundation-planet/` — complete current Planet source, contracts,
