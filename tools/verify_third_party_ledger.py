@@ -188,15 +188,23 @@ def verify(root: Path) -> dict[str, Any]:
             raise VerificationError(f"{vendor_root} manifest coverage mismatch; undeclared={undeclared} absent={absent}")
 
         verified_files: list[dict[str, Any]] = []
+        mismatches: list[str] = []
         for rel in sorted(declared):
             path = vendor_dir / rel
             raw = path.read_bytes()
             actual = f"sha256:{_sha256(raw)}"
             if actual != declared[rel]:
-                raise VerificationError(f"digest mismatch for {vendor_root}/{rel}: expected {declared[rel]} got {actual}")
+                normalized = raw.replace(b"\r\n", b"\n")
+                normalized_sha = f"sha256:{_sha256(normalized)}" if normalized != raw else "unchanged"
+                mismatches.append(
+                    f"{vendor_root}/{rel} expected={declared[rel]} actual={actual} lfNormalized={normalized_sha}"
+                )
+                continue
             total_files += 1
             total_bytes += len(raw)
             verified_files.append({"path": rel, "bytes": len(raw), "sha256": actual})
+        if mismatches:
+            raise VerificationError("digest mismatch: " + "; ".join(mismatches))
 
         mirror = {
             "name": name,
