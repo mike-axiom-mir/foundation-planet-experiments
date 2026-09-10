@@ -37,7 +37,7 @@ function assertExactKeys(value, allowed, label) {
 function coordinateChanges(source, target) {
   return source.coordinates.flatMap((coordinate, index) => {
     const migrated = target.coordinates[index];
-    if (Object.is(coordinate.lat, migrated.lat) && Object.is(coordinate.lon, migrated.lon)) return [];
+    if (coordinate.lat === migrated.lat && coordinate.lon === migrated.lon) return [];
     const change = {
       index,
       from: { lat: coordinate.lat, lon: coordinate.lon },

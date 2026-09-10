@@ -46,6 +46,10 @@ test('migrates a verified legacy receipt without replacing its evidence', async 
   assert.equal(verification.sourceReceiptDigest, legacy.integrity.digest);
   assert.equal(verification.targetReceiptDigest, capsule.target.receipt.integrity.digest);
   assert.equal(verification.coordinateChangeCount, 1);
+  assert.deepEqual(
+    verifySampleReceiptMigration(JSON.parse(JSON.stringify(capsule))),
+    verification,
+  );
 });
 
 test('migration is deterministic and needs no migration for canonical locations', async () => {

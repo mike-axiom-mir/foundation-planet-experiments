@@ -168,4 +168,10 @@ test('clean offline consumer can sample and fully replay receipts', async () => 
     'utf8',
   ));
   assert.deepEqual(installedCapability, described);
+  const installedMigrationCapability = JSON.parse(await readFile(
+    path.join(consumer, 'node_modules', 'axm-foundation-planet-sampler', 'migration-capability.json'),
+    'utf8',
+  ));
+  assert.equal(installedMigrationCapability.id, 'axm.foundation-planet.sample-receipt-migrator');
+  assert.deepEqual(installedMigrationCapability.versions, { source: '1.0.0', target: '1.1.0' });
 });
