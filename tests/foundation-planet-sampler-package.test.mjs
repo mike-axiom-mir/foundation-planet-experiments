@@ -54,7 +54,8 @@ test('clean offline consumer can sample and fully replay receipts', async () => 
     packResult[0].files.map(file => file.path).sort(),
     [
       'LICENSE', 'PROVENANCE.json', 'README.md', 'THIRD_PARTY.json', 'capability.json',
-      'cli.mjs', 'index.mjs', 'package.json', 'vendor/geophysics.mjs', 'vendor/planet-model.mjs',
+      'cli.mjs', 'index.mjs', 'migration-capability.json', 'migration.mjs', 'package.json',
+      'vendor/geophysics.mjs', 'vendor/planet-model.mjs',
     ],
   );
 
@@ -65,6 +66,7 @@ test('clean offline consumer can sample and fully replay receipts', async () => 
     import assert from 'node:assert/strict';
     import { createHash } from 'node:crypto';
     import { createSampleReceipt, describeCapability, verifySampleReceipt } from 'axm-foundation-planet-sampler';
+    import { describeMigrationCapability } from 'axm-foundation-planet-sampler/migration';
     const request = {
       schema: 'axm.foundation-planet.sample-request/v1',
       profile: 'temperate',
@@ -80,6 +82,7 @@ test('clean offline consumer can sample and fully replay receipts', async () => 
     assert.equal(verifySampleReceipt(first).valid, true);
     assert.equal(describeCapability().authority.canonical, false);
     assert.equal(describeCapability().version, '1.1.0');
+    assert.deepEqual(describeMigrationCapability().versions, { source: '1.0.0', target: '1.1.0' });
     assert.deepEqual(describeCapability().model.coordinateIdentity, {
       angularUnit: 'decimal-degrees',
       latitudeRange: '[-90, 90]',

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -10,7 +11,7 @@ import {
   describeMigrationCapability,
   verifySampleReceiptMigration,
 } from '../packages/foundation-planet-sampler/migration.mjs';
-import { canonicalJson } from '../packages/foundation-planet-sampler/index.mjs';
+import { canonicalJson, createSampleReceipt } from '../packages/foundation-planet-sampler/index.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixturePath = path.join(repositoryRoot, 'tests', 'fixtures', 'foundation-planet-sampler-v1.0-antimeridian.json');
@@ -53,9 +54,12 @@ test('migration is deterministic and needs no migration for canonical locations'
   const second = createSampleReceiptMigration(structuredClone(legacy));
   assert.deepEqual(first, second);
 
-  const unchanged = structuredClone(legacy);
-  unchanged.request.coordinates[0].lon = -180;
-  unchanged.samples[0].coordinate.lon = -180;
+  const unchanged = createSampleReceipt({
+    schema: 'axm.foundation-planet.sample-request/v1',
+    profile: 'temperate',
+    coordinates: [{ id: 'west-antimeridian', lat: 0, lon: -180 }],
+  });
+  unchanged.capability.version = '1.0.0';
   const { integrity: ignored, ...body } = unchanged;
   unchanged.integrity.digest = digest(body);
   const unchangedCapsule = createSampleReceiptMigration(unchanged);
@@ -84,12 +88,20 @@ test('holds tampering, re-sealed false legacy results, substitution, and authori
   escalated.integrity.digest = digest(authorityBody);
   assert.throws(() => verifySampleReceiptMigration(escalated), /deterministic migration/);
 
-  const substitute = createSampleReceiptMigration(await legacyFixture());
-  substitute.source.receipt.request.coordinates[0].id = 'substitute';
-  substitute.source.receipt.samples[0].coordinate.id = 'substitute';
-  const { integrity: sourceIntegrity2, ...sourceBody2 } = substitute.source.receipt;
-  substitute.source.receipt.integrity.digest = digest(sourceBody2);
-  assert.throws(() => verifySampleReceiptMigration(substitute, capsule.integrity.digest));
+  const substituteSource = createSampleReceipt({
+    schema: 'axm.foundation-planet.sample-request/v1',
+    profile: 'temperate',
+    coordinates: [{ id: 'different-valid-source', lat: 0, lon: 0 }],
+  });
+  substituteSource.capability.version = '1.0.0';
+  const { integrity: sourceIntegrity2, ...sourceBody2 } = substituteSource;
+  substituteSource.integrity.digest = digest(sourceBody2);
+  const substitute = createSampleReceiptMigration(substituteSource);
+  assert.equal(verifySampleReceiptMigration(substitute).valid, true);
+  assert.throws(
+    () => verifySampleReceiptMigration(substitute, capsule.integrity.digest),
+    /caller-pinned identity/,
+  );
 });
 
 test('descriptor exposes bounded offline lineage-only authority', () => {
@@ -102,4 +114,17 @@ test('descriptor exposes bounded offline lineage-only authority', () => {
     replacesSourceEvidence: false,
     canonical: false,
   });
+});
+
+test('CLI migrates and verifies the same exact lineage offline', async () => {
+  const cli = path.join(repositoryRoot, 'packages', 'foundation-planet-sampler', 'cli.mjs');
+  const migrated = spawnSync(process.execPath, [cli, 'migrate', fixturePath], { encoding: 'utf8' });
+  assert.equal(migrated.status, 0, migrated.stderr);
+  const capsule = JSON.parse(migrated.stdout);
+  const verified = spawnSync(process.execPath, [cli, 'verify-migration', '-'], {
+    encoding: 'utf8',
+    input: JSON.stringify(capsule),
+  });
+  assert.equal(verified.status, 0, verified.stderr);
+  assert.equal(JSON.parse(verified.stdout).migrationDigest, capsule.integrity.digest);
 });

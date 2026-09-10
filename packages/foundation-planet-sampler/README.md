@@ -31,6 +31,10 @@ The installed CLI reads JSON from a file or standard input:
 foundation-planet-sampler describe
 foundation-planet-sampler sample request.json > receipt.json
 foundation-planet-sampler verify receipt.json
+foundation-planet-sampler verify-legacy legacy-receipt.json
+foundation-planet-sampler describe-migration
+foundation-planet-sampler migrate legacy-receipt.json > migration.json
+foundation-planet-sampler verify-migration migration.json
 ```
 
 CLI JSON input is capped at 1 MiB and rejects duplicate object member names at
@@ -63,3 +67,19 @@ Receipts still use the v1 request and receipt shapes, while the embedded
 capability version makes the changed normalization semantics explicit. Older
 `1.0.0` receipts are evidence from a different sampler behavior and are not
 silently reinterpreted.
+
+## Explicit legacy receipt migration
+
+Package version `0.3.0` adds a separate, deterministic migration capability for
+exact sampler `1.0.0` receipts. It first replays the source receipt under the
+original raw-coordinate behavior, then creates a new `1.1.0` receipt from the
+same request under canonical coordinate identity. Its migration capsule retains
+both complete receipts, records only the coordinates whose identity changed,
+and binds the lineage with SHA-256.
+
+The source receipt remains historical evidence; the target is a new receipt,
+not a reinterpretation of the old one. The migration capsule cannot apply world
+state, replace source evidence, publish a package, or grant CANON authority. A
+caller may retain the migration digest and pass it to
+`verifySampleReceiptMigration(capsule, expectedDigest)` to reject substitution
+by another internally valid capsule.

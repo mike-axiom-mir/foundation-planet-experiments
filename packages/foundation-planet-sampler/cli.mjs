@@ -3,7 +3,17 @@
 import { readFile, stat } from 'node:fs/promises';
 import process from 'node:process';
 
-import { createSampleReceipt, describeCapability, verifySampleReceipt } from './index.mjs';
+import {
+  createSampleReceipt,
+  describeCapability,
+  verifyLegacySampleReceipt,
+  verifySampleReceipt,
+} from './index.mjs';
+import {
+  createSampleReceiptMigration,
+  describeMigrationCapability,
+  verifySampleReceiptMigration,
+} from './migration.mjs';
 
 const MAX_INPUT_BYTES = 1_048_576;
 
@@ -139,9 +149,16 @@ async function main(argv) {
     if (source !== undefined) throw new TypeError('describe accepts no input path');
     return describeCapability();
   }
+  if (command === 'describe-migration') {
+    if (source !== undefined) throw new TypeError('describe-migration accepts no input path');
+    return describeMigrationCapability();
+  }
   if (command === 'sample') return createSampleReceipt(await readBoundedJson(source));
   if (command === 'verify') return verifySampleReceipt(await readBoundedJson(source));
-  throw new TypeError('usage: foundation-planet-sampler describe | sample [request.json|-] | verify [receipt.json|-]');
+  if (command === 'verify-legacy') return verifyLegacySampleReceipt(await readBoundedJson(source));
+  if (command === 'migrate') return createSampleReceiptMigration(await readBoundedJson(source));
+  if (command === 'verify-migration') return verifySampleReceiptMigration(await readBoundedJson(source));
+  throw new TypeError('usage: foundation-planet-sampler describe | sample [request.json|-] | verify [receipt.json|-] | verify-legacy [legacy-receipt.json|-] | describe-migration | migrate [legacy-receipt.json|-] | verify-migration [migration.json|-]');
 }
 
 main(process.argv.slice(2)).then(

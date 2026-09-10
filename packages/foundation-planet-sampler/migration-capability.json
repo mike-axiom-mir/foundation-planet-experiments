@@ -1,0 +1,12 @@
+{
+  "schema": "axm.foundation-planet.sample-receipt-migrator-capability/v1",
+  "id": "axm.foundation-planet.sample-receipt-migrator",
+  "version": "1.0.0",
+  "status": "EXPERIMENTAL",
+  "runtime": { "kind": "node-esm", "node": ">=20", "networkRequired": false },
+  "operations": ["verify-legacy", "describe-migration", "migrate", "verify-migration"],
+  "migrationSchema": "axm.foundation-planet.sample-receipt-migration/v1",
+  "verificationSchema": "axm.foundation-planet.sample-receipt-migration-verification/v1",
+  "versions": { "source": "1.0.0", "target": "1.1.0" },
+  "authority": { "appliesState": false, "replacesSourceEvidence": false, "canonical": false }
+}

@@ -14,6 +14,7 @@ export const SAMPLE_VERIFICATION_SCHEMA = 'axm.foundation-planet.sample-verifica
 
 const CAPABILITY_ID = 'axm.foundation-planet.coordinate-sampler';
 const CAPABILITY_VERSION = '1.1.0';
+const LEGACY_CAPABILITY_VERSION = '1.0.0';
 const MAX_COORDINATES = 256;
 const MAX_COORDINATE_ID_CHARACTERS = 128;
 
@@ -58,7 +59,7 @@ function sha256(value) {
   return createHash('sha256').update(canonicalJson(value)).digest('hex');
 }
 
-function normalizeCoordinate(value, index) {
+function normalizeCoordinate(value, index, canonicalIdentity = true) {
   assertPlainObject(value, `coordinates[${index}]`);
   assertExactKeys(value, ['id', 'lat', 'lon'], `coordinates[${index}]`);
   if (!Number.isFinite(value.lat) || value.lat < -90 || value.lat > 90) {
@@ -67,10 +68,10 @@ function normalizeCoordinate(value, index) {
   if (!Number.isFinite(value.lon) || value.lon < -180 || value.lon > 180) {
     throw new RangeError(`coordinates[${index}].lon must be finite and between -180 and 180`);
   }
-  const lat = Object.is(value.lat, -0) ? 0 : value.lat;
-  let lon = Object.is(value.lon, -0) ? 0 : value.lon;
-  if (lon === 180) lon = -180;
-  if (Math.abs(lat) === 90) lon = 0;
+  const lat = canonicalIdentity && Object.is(value.lat, -0) ? 0 : value.lat;
+  let lon = canonicalIdentity && Object.is(value.lon, -0) ? 0 : value.lon;
+  if (canonicalIdentity && lon === 180) lon = -180;
+  if (canonicalIdentity && Math.abs(lat) === 90) lon = 0;
   const coordinate = { lat, lon };
   if (own(value, 'id')) {
     if (typeof value.id !== 'string' || value.id.length < 1 || value.id.length > MAX_COORDINATE_ID_CHARACTERS || /[\u0000-\u001f\u007f]/.test(value.id)) {
@@ -81,7 +82,7 @@ function normalizeCoordinate(value, index) {
   return coordinate;
 }
 
-export function normalizeSampleRequest(value) {
+function normalizeRequest(value, canonicalIdentity) {
   assertPlainObject(value, 'request');
   assertExactKeys(value, ['schema', 'profile', 'coordinates'], 'request');
   if (value.schema !== SAMPLE_REQUEST_SCHEMA) throw new TypeError(`request.schema must be ${SAMPLE_REQUEST_SCHEMA}`);
@@ -94,8 +95,16 @@ export function normalizeSampleRequest(value) {
   return {
     schema: SAMPLE_REQUEST_SCHEMA,
     profile: value.profile,
-    coordinates: value.coordinates.map(normalizeCoordinate),
+    coordinates: value.coordinates.map((coordinate, index) => normalizeCoordinate(coordinate, index, canonicalIdentity)),
   };
+}
+
+export function normalizeSampleRequest(value) {
+  return normalizeRequest(value, true);
+}
+
+function normalizeLegacySampleRequest(value) {
+  return normalizeRequest(value, false);
 }
 
 export function describeCapability() {
@@ -137,7 +146,7 @@ export function describeCapability() {
   };
 }
 
-function receiptBody(request) {
+function receiptBody(request, capabilityVersion = CAPABILITY_VERSION) {
   const samples = request.coordinates.map(coordinate => ({
     coordinate,
     sample: sampleLatLon(coordinate.lat, coordinate.lon, {
@@ -147,7 +156,7 @@ function receiptBody(request) {
   }));
   return {
     schema: SAMPLE_RECEIPT_SCHEMA,
-    capability: { id: CAPABILITY_ID, version: CAPABILITY_VERSION },
+    capability: { id: CAPABILITY_ID, version: capabilityVersion },
     world: { id: PLANET_DEFAULTS.id, seed: PLANET_DEFAULTS.seed, modelSchema: MODEL_SCHEMA },
     request,
     samples,
@@ -164,7 +173,16 @@ export function createSampleReceipt(value) {
   };
 }
 
-export function verifySampleReceipt(value) {
+function createLegacySampleReceipt(value) {
+  const request = normalizeLegacySampleRequest(value);
+  const body = receiptBody(request, LEGACY_CAPABILITY_VERSION);
+  return {
+    ...body,
+    integrity: { algorithm: 'sha256', digest: sha256(body) },
+  };
+}
+
+function verifyReceipt(value, normalizeRequestForVersion, createReceiptForVersion) {
   assertPlainObject(value, 'receipt');
   assertExactKeys(value, ['schema', 'capability', 'world', 'request', 'samples', 'authority', 'integrity'], 'receipt');
   if (value.schema !== SAMPLE_RECEIPT_SCHEMA) throw new TypeError(`receipt.schema must be ${SAMPLE_RECEIPT_SCHEMA}`);
@@ -173,18 +191,37 @@ export function verifySampleReceipt(value) {
   if (value.integrity.algorithm !== 'sha256' || !/^[a-f0-9]{64}$/.test(value.integrity.digest)) {
     throw new TypeError('receipt.integrity must contain a lowercase SHA-256 digest');
   }
-  const request = normalizeSampleRequest(value.request);
+  const request = normalizeRequestForVersion(value.request);
   if (canonicalJson(request) !== canonicalJson(value.request)) throw new Error('receipt request is not canonical');
-  const expected = createSampleReceipt(request);
+  const expected = createReceiptForVersion(request);
   if (canonicalJson(expected) !== canonicalJson(value)) {
     throw new Error('receipt does not match deterministic replay');
   }
+  return expected;
+}
+
+export function verifySampleReceipt(value) {
+  const expected = verifyReceipt(value, normalizeSampleRequest, createSampleReceipt);
   return {
     schema: SAMPLE_VERIFICATION_SCHEMA,
     valid: true,
     receiptDigest: value.integrity.digest,
     sampleCount: expected.samples.length,
     worldId: PLANET_DEFAULTS.id,
+    appliedState: false,
+    canonical: false,
+  };
+}
+
+export function verifyLegacySampleReceipt(value) {
+  const expected = verifyReceipt(value, normalizeLegacySampleRequest, createLegacySampleReceipt);
+  return {
+    schema: SAMPLE_VERIFICATION_SCHEMA,
+    valid: true,
+    receiptDigest: value.integrity.digest,
+    sampleCount: expected.samples.length,
+    worldId: PLANET_DEFAULTS.id,
+    capabilityVersion: LEGACY_CAPABILITY_VERSION,
     appliedState: false,
     canonical: false,
   };
