@@ -1,0 +1,105 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+import {
+  createSampleReceiptMigration,
+  describeMigrationCapability,
+  verifySampleReceiptMigration,
+} from '../packages/foundation-planet-sampler/migration.mjs';
+import { canonicalJson } from '../packages/foundation-planet-sampler/index.mjs';
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const fixturePath = path.join(repositoryRoot, 'tests', 'fixtures', 'foundation-planet-sampler-v1.0-antimeridian.json');
+const digest = value => createHash('sha256').update(canonicalJson(value)).digest('hex');
+
+async function legacyFixture() {
+  return JSON.parse(await readFile(fixturePath, 'utf8'));
+}
+
+test('migrates a verified legacy receipt without replacing its evidence', async () => {
+  const legacy = await legacyFixture();
+  const capsule = createSampleReceiptMigration(legacy);
+
+  assert.equal(capsule.source.receipt.integrity.digest, legacy.integrity.digest);
+  assert.deepEqual(capsule.source.receipt, legacy);
+  assert.equal(capsule.target.receipt.capability.version, '1.1.0');
+  assert.equal(capsule.target.receipt.request.coordinates[0].lon, -180);
+  assert.deepEqual(capsule.coordinateChanges, [{
+    index: 0,
+    id: 'east-antimeridian',
+    from: { lat: 0, lon: 180 },
+    to: { lat: 0, lon: -180 },
+  }]);
+  assert.deepEqual(capsule.authority, {
+    appliesState: false,
+    replacesSourceEvidence: false,
+    canonical: false,
+  });
+
+  const verification = verifySampleReceiptMigration(capsule, capsule.integrity.digest);
+  assert.equal(verification.valid, true);
+  assert.equal(verification.sourceReceiptDigest, legacy.integrity.digest);
+  assert.equal(verification.targetReceiptDigest, capsule.target.receipt.integrity.digest);
+  assert.equal(verification.coordinateChangeCount, 1);
+});
+
+test('migration is deterministic and needs no migration for canonical locations', async () => {
+  const legacy = await legacyFixture();
+  const first = createSampleReceiptMigration(legacy);
+  const second = createSampleReceiptMigration(structuredClone(legacy));
+  assert.deepEqual(first, second);
+
+  const unchanged = structuredClone(legacy);
+  unchanged.request.coordinates[0].lon = -180;
+  unchanged.samples[0].coordinate.lon = -180;
+  const { integrity: ignored, ...body } = unchanged;
+  unchanged.integrity.digest = digest(body);
+  const unchangedCapsule = createSampleReceiptMigration(unchanged);
+  assert.deepEqual(unchangedCapsule.coordinateChanges, []);
+});
+
+test('holds tampering, re-sealed false legacy results, substitution, and authority escalation', async () => {
+  const legacy = await legacyFixture();
+  const capsule = createSampleReceiptMigration(legacy);
+
+  const sourceTamper = structuredClone(legacy);
+  sourceTamper.samples[0].sample.biome = 'invented';
+  const { integrity: ignored, ...sourceBody } = sourceTamper;
+  sourceTamper.integrity.digest = digest(sourceBody);
+  assert.throws(() => createSampleReceiptMigration(sourceTamper), /deterministic replay/);
+
+  const targetTamper = structuredClone(capsule);
+  targetTamper.target.receipt.samples[0].sample.biome = 'invented';
+  const { integrity: targetIntegrity, ...targetBody } = targetTamper;
+  targetTamper.integrity.digest = digest(targetBody);
+  assert.throws(() => verifySampleReceiptMigration(targetTamper), /deterministic migration/);
+
+  const escalated = structuredClone(capsule);
+  escalated.authority.appliesState = true;
+  const { integrity: authorityIntegrity, ...authorityBody } = escalated;
+  escalated.integrity.digest = digest(authorityBody);
+  assert.throws(() => verifySampleReceiptMigration(escalated), /deterministic migration/);
+
+  const substitute = createSampleReceiptMigration(await legacyFixture());
+  substitute.source.receipt.request.coordinates[0].id = 'substitute';
+  substitute.source.receipt.samples[0].coordinate.id = 'substitute';
+  const { integrity: sourceIntegrity2, ...sourceBody2 } = substitute.source.receipt;
+  substitute.source.receipt.integrity.digest = digest(sourceBody2);
+  assert.throws(() => verifySampleReceiptMigration(substitute, capsule.integrity.digest));
+});
+
+test('descriptor exposes bounded offline lineage-only authority', () => {
+  const descriptor = describeMigrationCapability();
+  assert.equal(descriptor.id, 'axm.foundation-planet.sample-receipt-migrator');
+  assert.equal(descriptor.runtime.networkRequired, false);
+  assert.deepEqual(descriptor.versions, { source: '1.0.0', target: '1.1.0' });
+  assert.deepEqual(descriptor.authority, {
+    appliesState: false,
+    replacesSourceEvidence: false,
+    canonical: false,
+  });
+});
