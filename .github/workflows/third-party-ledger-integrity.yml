@@ -1,0 +1,65 @@
+name: Third-party ledger integrity
+
+on:
+  push:
+    branches:
+      - main
+      - "automation/**"
+    paths:
+      - THIRD_PARTY.json
+      - "shared/vendor/**"
+      - tools/verify_third_party_ledger.py
+      - tests/test_third_party_ledger.py
+      - .github/workflows/third-party-ledger-integrity.yml
+  pull_request:
+    paths:
+      - THIRD_PARTY.json
+      - "shared/vendor/**"
+      - tools/verify_third_party_ledger.py
+      - tests/test_third_party_ledger.py
+      - .github/workflows/third-party-ledger-integrity.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-vendored-provenance:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile verifier and tests
+        run: python -m py_compile tools/verify_third_party_ledger.py tests/test_third_party_ledger.py
+      - name: Run focused boundary regressions
+        run: python -m unittest discover -s tests -p 'test_third_party_ledger.py' -v
+      - name: Verify repository vendored provenance
+        run: python tools/verify_third_party_ledger.py | tee third-party-ledger-verification.json
+      - name: Assert receipt authority stays closed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("third-party-ledger-verification.json").read_text(encoding="utf-8"))
+          assert receipt["status"] == "PASS"
+          assert receipt["networkUsed"] is False
+          assert receipt["authority"] == {
+              "canon": False,
+              "install": False,
+              "merge": False,
+              "promote": False,
+              "publish": False,
+          }
+          print("receipt boundary: PASS")
+          PY
+      - name: Preserve verification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: third-party-ledger-${{ matrix.python-version }}
+          path: third-party-ledger-verification.json
+          retention-days: 14
