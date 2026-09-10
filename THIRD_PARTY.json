@@ -1,1 +1,25 @@
-{"schema":"axm-third-party-v1","repository":"foundation-planet-experiments","project_license":"Apache-2.0","audit":{"status":"baseline","complete":false,"note":"Initial explicit ledger; verify source/license before any external artifact is promoted."},"entries":[]}
+{
+  "schema": "axm-third-party-v1",
+  "repository": "foundation-planet-experiments",
+  "project_license": "Apache-2.0",
+  "audit": {
+    "status": "verified-local-vendor-inventory",
+    "complete": true,
+    "note": "Complete for the repository-local shared/vendor inventory at this revision. Verification checks declared source/license metadata, exact local file coverage, and SHA-256 bytes; it does not authenticate upstream authorship or make legal-suitability claims."
+  },
+  "entries": [
+    {
+      "name": "three.js",
+      "version": "r160",
+      "license": "MIT",
+      "source": "https://github.com/mrdoob/three.js/tree/r160",
+      "vendorRoot": "shared/vendor/three-r160",
+      "sourceManifest": "shared/vendor/three-r160/SOURCE.json",
+      "runtimeNetworkRequired": false,
+      "files": {
+        "LICENSE": "sha256:852e0e8699169bf9f6fdc6bda3e682d078dcbc738b5d33e74df594721bff271d",
+        "three.module.js": "sha256:76dea8151bc9352aef3528b4262e249b2604f62543828328db978d060d61a495"
+      }
+    }
+  ]
+}
