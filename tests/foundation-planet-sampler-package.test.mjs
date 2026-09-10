@@ -79,6 +79,26 @@ test('clean offline consumer can sample and fully replay receipts', async () => 
     assert.equal(first.samples.length, 2);
     assert.equal(verifySampleReceipt(first).valid, true);
     assert.equal(describeCapability().authority.canonical, false);
+
+    const at = (lat, lon) => createSampleReceipt({
+      schema: 'axm.foundation-planet.sample-request/v1',
+      profile: 'temperate',
+      coordinates: [{ id: 'same-place', lat, lon }],
+    });
+    const westAntimeridian = at(0, -180);
+    const eastAntimeridian = at(0, 180);
+    assert.equal(eastAntimeridian.request.coordinates[0].lon, -180);
+    assert.deepEqual(eastAntimeridian, westAntimeridian);
+
+    const northPoleWest = at(90, -120);
+    const northPoleEast = at(90, 75);
+    assert.equal(northPoleWest.request.coordinates[0].lon, 0);
+    assert.deepEqual(northPoleWest, northPoleEast);
+
+    const signedZero = at(-0, -0);
+    assert.equal(Object.is(signedZero.request.coordinates[0].lat, -0), false);
+    assert.equal(Object.is(signedZero.request.coordinates[0].lon, -0), false);
+
     const tampered = structuredClone(first);
     tampered.samples[0].sample.elevationM += 1;
     const { integrity, ...body } = tampered;
