@@ -33,6 +33,12 @@ foundation-planet-sampler sample request.json > receipt.json
 foundation-planet-sampler verify receipt.json
 ```
 
+CLI JSON input is capped at 1 MiB and rejects duplicate object member names at
+any nesting depth before request or receipt admission, including names that are
+only duplicates after JSON escape decoding. The ESM API receives already
+materialized JavaScript objects, so that byte-level duplicate-member rule is a
+CLI-input guarantee rather than a claim about object construction in callers.
+
 `verify` checks the SHA-256 consistency seal and fully replays every sample. A
 caller that changes a result and computes a new seal still fails replay. The
 seal proves model-to-receipt byte agreement, not authorship, scientific
