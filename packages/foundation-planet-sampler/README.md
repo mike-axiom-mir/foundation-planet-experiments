@@ -38,11 +38,14 @@ foundation-planet-sampler verify-migration migration.json
 foundation-planet-sampler review-migration migration.json > migration-review.html
 ```
 
-CLI JSON input is capped at 1 MiB and rejects duplicate object member names at
-any nesting depth before request or receipt admission, including names that are
-only duplicates after JSON escape decoding. The ESM API receives already
-materialized JavaScript objects, so that byte-level duplicate-member rule is a
-CLI-input guarantee rather than a claim about object construction in callers.
+CLI JSON input is capped at 1 MiB, must be valid UTF-8 without replacement
+decoding, and rejects duplicate object member names at any nesting depth before
+request or receipt admission, including names that are only duplicates after
+JSON escape decoding. An intentionally encoded U+FFFD replacement character is
+valid UTF-8 and remains ordinary input; malformed byte sequences that would only
+become U+FFFD through decoder replacement are refused. The ESM API receives
+already materialized JavaScript objects, so these raw-byte/text admission rules
+are CLI-input guarantees rather than claims about object construction in callers.
 
 `verify` checks the SHA-256 consistency seal and fully replays every sample. A
 caller that changes a result and computes a new seal still fails replay. The
