@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { readFile, stat } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { lstat, open } from 'node:fs/promises';
 import process from 'node:process';
 import { TextDecoder } from 'node:util';
 
@@ -125,14 +126,87 @@ function decodeUtf8Strict(buffer) {
   }
 }
 
-async function readBoundedJson(source) {
-  if (source && source !== '-') {
-    const details = await stat(source);
-    if (!details.isFile()) throw new TypeError('input path must name a regular file');
-    if (details.size > MAX_INPUT_BYTES) throw new RangeError(`input exceeds ${MAX_INPUT_BYTES} bytes`);
+function sameFileIdentity(left, right) {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+function sameFileSnapshot(left, right) {
+  return sameFileIdentity(left, right)
+    && left.size === right.size
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs;
+}
+
+async function readBoundedRegularFile(source) {
+  const admitted = await lstat(source, { bigint: true });
+  if (admitted.isSymbolicLink() || !admitted.isFile()) {
+    throw new TypeError('input path must name a regular non-symlink file');
   }
+  if (admitted.size > BigInt(MAX_INPUT_BYTES)) {
+    throw new RangeError(`input exceeds ${MAX_INPUT_BYTES} bytes`);
+  }
+
+  let handle;
+  try {
+    handle = await open(source, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
+  } catch (error) {
+    if (error?.code === 'ELOOP') {
+      throw new TypeError('input path must name a regular non-symlink file');
+    }
+    throw error;
+  }
+
+  try {
+    const openedBefore = await handle.stat({ bigint: true });
+    if (!openedBefore.isFile() || !sameFileIdentity(admitted, openedBefore)) {
+      throw new Error('input file changed during admission');
+    }
+    if (openedBefore.size > BigInt(MAX_INPUT_BYTES)) {
+      throw new RangeError(`input exceeds ${MAX_INPUT_BYTES} bytes`);
+    }
+
+    const chunks = [];
+    let total = 0;
+    let position = 0;
+    while (true) {
+      const remaining = MAX_INPUT_BYTES + 1 - total;
+      if (remaining <= 0) throw new RangeError(`input exceeds ${MAX_INPUT_BYTES} bytes`);
+      const chunk = Buffer.allocUnsafe(Math.min(64 * 1024, remaining));
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, position);
+      if (bytesRead === 0) break;
+      chunks.push(chunk.subarray(0, bytesRead));
+      total += bytesRead;
+      position += bytesRead;
+      if (total > MAX_INPUT_BYTES) throw new RangeError(`input exceeds ${MAX_INPUT_BYTES} bytes`);
+    }
+
+    const openedAfter = await handle.stat({ bigint: true });
+    let pathAfter;
+    try {
+      pathAfter = await lstat(source, { bigint: true });
+    } catch (error) {
+      if (error?.code === 'ENOENT') throw new Error('input file changed during read');
+      throw error;
+    }
+    if (
+      pathAfter.isSymbolicLink()
+      || !pathAfter.isFile()
+      || !sameFileIdentity(openedAfter, pathAfter)
+      || !sameFileSnapshot(openedBefore, openedAfter)
+      || openedAfter.size !== BigInt(total)
+    ) {
+      throw new Error('input file changed during read');
+    }
+
+    return Buffer.concat(chunks, total);
+  } finally {
+    await handle.close();
+  }
+}
+
+async function readBoundedJson(source) {
   const buffer = source && source !== '-'
-    ? await readFile(source)
+    ? await readBoundedRegularFile(source)
     : await new Promise((resolve, reject) => {
       const chunks = [];
       let bytes = 0;
