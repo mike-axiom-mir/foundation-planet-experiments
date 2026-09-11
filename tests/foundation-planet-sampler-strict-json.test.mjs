@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -22,7 +22,7 @@ function run(command, args, options = {}) {
   return result;
 }
 
-test('installed CLI rejects duplicate JSON object members before sample or receipt admission', async () => {
+test('installed CLI rejects ambiguous or malformed JSON bytes before sample or receipt admission', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'foundation-planet-sampler-strict-json-'));
   const artifacts = path.join(root, 'artifacts');
   const consumer = path.join(root, 'consumer');
@@ -87,4 +87,44 @@ test('installed CLI rejects duplicate JSON object members before sample or recei
     assert.equal(error.error, 'SyntaxError');
     assert.equal(error.message, `duplicate JSON object key "${key}"`, `${label} did not report the ambiguous key`);
   }
+
+  const malformedUtf8 = Buffer.concat([
+    Buffer.from('{"schema":"axm.foundation-planet.sample-request/v1","profile":"temperate","coordinates":[{"id":"malformed-'),
+    Buffer.from([0xff]),
+    Buffer.from('","lat":0,"lon":0}]}'),
+  ]);
+
+  const malformedStdin = run(bin, ['sample', '-'], {
+    cwd: consumer,
+    input: malformedUtf8,
+    allowFailure: true,
+  });
+  const malformedPath = path.join(root, 'malformed-request.json');
+  await writeFile(malformedPath, malformedUtf8);
+  const malformedFile = run(bin, ['sample', malformedPath], {
+    cwd: consumer,
+    allowFailure: true,
+  });
+
+  for (const [label, result] of [
+    ['malformed UTF-8 stdin', malformedStdin],
+    ['malformed UTF-8 file', malformedFile],
+  ]) {
+    assert.notEqual(result.status, 0, `${label} was replacement-decoded and admitted\nstdout: ${result.stdout}`);
+    const error = JSON.parse(result.stderr.trim());
+    assert.equal(error.schema, 'axm.foundation-planet.sampler-error/v1');
+    assert.equal(error.error, 'SyntaxError');
+    assert.equal(error.message, 'input is not valid UTF-8');
+  }
+
+  const validReplacementCharacter = JSON.stringify({
+    schema: 'axm.foundation-planet.sample-request/v1',
+    profile: 'temperate',
+    coordinates: [{ id: 'valid-\ufffd', lat: 0, lon: 0 }],
+  });
+  const replacementReceipt = JSON.parse(run(bin, ['sample', '-'], {
+    cwd: consumer,
+    input: validReplacementCharacter,
+  }).stdout);
+  assert.equal(replacementReceipt.request.coordinates[0].id, 'valid-\ufffd');
 });
