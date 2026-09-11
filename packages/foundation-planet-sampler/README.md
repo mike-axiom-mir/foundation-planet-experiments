@@ -47,6 +47,14 @@ become U+FFFD through decoder replacement are refused. The ESM API receives
 already materialized JavaScript objects, so these raw-byte/text admission rules
 are CLI-input guarantees rather than claims about object construction in callers.
 
+Regular-file CLI input is admitted through one opened file descriptor rather
+than a separate pathname check followed by a second pathname read. Final-path
+symlinks are refused, the opened regular-file identity must match the selected
+path before and after the bounded read, and observable size/mtime/ctime drift
+while those bytes are being acquired fails closed. This binds accepted bytes to
+one local file object; it is not authentication, a filesystem sandbox, a lock on
+other writers, or a guarantee against a sufficiently privileged hostile writer.
+
 `verify` checks the SHA-256 consistency seal and fully replays every sample. A
 caller that changes a result and computes a new seal still fails replay. The
 seal proves model-to-receipt byte agreement, not authorship, scientific
@@ -62,9 +70,9 @@ authority. Registry publication remains blocked by `private: true`.
 The sampler treats coordinates as spherical locations rather than raw pairs of
 numbers. It normalizes the antimeridian to longitude `-180`, longitude at both
 poles to `0`, and signed zero to positive zero before sampling, hashing, or
-returning a receipt. Thus equivalent locations have one request identity and
-one deterministic sample. The machine-readable capability descriptor exposes
-the same rules under `model.coordinateIdentity`.
+returning a receipt. Thus equivalent locations have one request identity and one
+deterministic sample. The machine-readable capability descriptor exposes the
+same rules under `model.coordinateIdentity`.
 
 This normalization is capability version `1.1.0` / package version `0.2.0`.
 Receipts still use the v1 request and receipt shapes, while the embedded
