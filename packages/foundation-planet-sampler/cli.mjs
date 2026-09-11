@@ -2,6 +2,7 @@
 
 import { readFile, stat } from 'node:fs/promises';
 import process from 'node:process';
+import { TextDecoder } from 'node:util';
 
 import {
   createSampleReceipt,
@@ -113,6 +114,17 @@ function assertNoDuplicateObjectKeys(text) {
   if (cursor !== text.length) throw new SyntaxError('trailing JSON data');
 }
 
+function decodeUtf8Strict(buffer) {
+  try {
+    // ignoreBOM:true preserves Buffer.toString('utf8') treatment of a leading BOM;
+    // fatal:true changes only malformed byte-sequence handling from replacement to refusal.
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(buffer);
+  } catch (error) {
+    if (error instanceof TypeError) throw new SyntaxError('input is not valid UTF-8');
+    throw error;
+  }
+}
+
 async function readBoundedJson(source) {
   if (source && source !== '-') {
     const details = await stat(source);
@@ -137,7 +149,7 @@ async function readBoundedJson(source) {
       process.stdin.on('error', reject);
     });
   if (buffer.length > MAX_INPUT_BYTES) throw new RangeError(`input exceeds ${MAX_INPUT_BYTES} bytes`);
-  const text = buffer.toString('utf8');
+  const text = decodeUtf8Strict(buffer);
   const value = JSON.parse(text);
   assertNoDuplicateObjectKeys(text);
   return value;
