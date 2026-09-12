@@ -4,16 +4,13 @@ export const WORLD_STATE_SCHEMA = 'axm.foundation-planet.world-state/v2';
 export const LEGACY_SAVE_SCHEMA = 'axm.foundation-planet.save/v1';
 export const COMPRESSED_WORLD_STATE_STORAGE_SCHEMA =
   'axm.foundation-planet.compressed-world-state-storage/v1';
-export const COMPRESSED_WORLD_STATE_ENCODING = 'lzw-uint16-base64';
+export const COMPRESSED_WORLD_STATE_ENCODING = 'lzw-uint16-utf15';
+export const LEGACY_COMPRESSED_WORLD_STATE_ENCODING = 'lzw-uint16-base64';
 
-function bytesToBase64(bytes) {
-  let binary = '';
-  for (let offset = 0; offset < bytes.length; offset += 32_768) {
-    binary += String.fromCharCode(...bytes.subarray(
-      offset, Math.min(bytes.length, offset + 32_768)));
-  }
-  return btoa(binary);
-}
+// U+4000..U+BFFF carries 15 payload bits per single UTF-16 code unit while
+// avoiding JSON escape characters and the UTF-16 surrogate range.
+const UTF15_CODE_POINT_OFFSET = 0x4000;
+const UTF15_VALUE_LIMIT = 0x7fff;
 
 function base64ToBytes(value) {
   const binary = atob(value);
@@ -24,9 +21,77 @@ function base64ToBytes(value) {
   return bytes;
 }
 
+function bytesToUtf15(bytes) {
+  const chunks = [];
+  let codePoints = [];
+  let buffer = 0;
+  let bitCount = 0;
+
+  function push(value) {
+    codePoints.push(value + UTF15_CODE_POINT_OFFSET);
+    if (codePoints.length >= 32_768) {
+      chunks.push(String.fromCharCode(...codePoints));
+      codePoints = [];
+    }
+  }
+
+  for (const byte of bytes) {
+    buffer = buffer * 256 + byte;
+    bitCount += 8;
+    while (bitCount >= 15) {
+      bitCount -= 15;
+      const divisor = 2 ** bitCount;
+      const value = Math.floor(buffer / divisor);
+      buffer -= value * divisor;
+      push(value);
+    }
+  }
+  if (bitCount > 0) push(buffer * (2 ** (15 - bitCount)));
+  if (codePoints.length) chunks.push(String.fromCharCode(...codePoints));
+  return chunks.join('');
+}
+
+function utf15ToBytes(value, expectedBytes) {
+  if (typeof value !== 'string' || !Number.isSafeInteger(expectedBytes) ||
+      expectedBytes < 0 || expectedBytes > Math.floor(Number.MAX_SAFE_INTEGER / 8)) {
+    throw new Error('compressed world-state packed shape');
+  }
+  const expectedCharacters = Math.ceil(expectedBytes * 8 / 15);
+  if (value.length !== expectedCharacters) {
+    throw new Error('compressed world-state packed length');
+  }
+
+  const output = new Uint8Array(expectedBytes);
+  let outputOffset = 0;
+  let buffer = 0;
+  let bitCount = 0;
+  for (let index = 0; index < value.length; index++) {
+    const packed = value.charCodeAt(index) - UTF15_CODE_POINT_OFFSET;
+    if (packed < 0 || packed > UTF15_VALUE_LIMIT) {
+      throw new Error('compressed world-state packed character');
+    }
+    buffer = buffer * 32_768 + packed;
+    bitCount += 15;
+    while (bitCount >= 8 && outputOffset < output.length) {
+      bitCount -= 8;
+      const divisor = 2 ** bitCount;
+      const byte = Math.floor(buffer / divisor);
+      buffer -= byte * divisor;
+      output[outputOffset++] = byte;
+    }
+  }
+  if (outputOffset !== output.length || buffer !== 0 ||
+      bitCount !== value.length * 15 - expectedBytes * 8) {
+    throw new Error('compressed world-state packed padding');
+  }
+  return output;
+}
+
 function compressText(value) {
   const input = new TextEncoder().encode(value);
-  if (!input.length) return { data: '', uncompressedBytes: 0 };
+  if (!input.length) {
+    return { data: '', compressedBytes: 0, uncompressedBytes: 0 };
+  }
   const dictionary = new Map();
   const codes = [];
   let nextCode = 256;
@@ -54,15 +119,17 @@ function compressText(value) {
     encoded[index * 2 + 1] = codes[index] & 255;
   }
   return {
-    data: bytesToBase64(encoded),
+    data: bytesToUtf15(encoded),
+    compressedBytes: encoded.length,
     uncompressedBytes: input.length
   };
 }
 
-function decompressText(data, expectedBytes) {
-  const encoded = base64ToBytes(data);
-  if (encoded.length % 2 !== 0 || !Number.isSafeInteger(expectedBytes) ||
-      expectedBytes < 0) throw new Error('compressed world-state shape');
+function decompressText(encoded, expectedBytes) {
+  if (!(encoded instanceof Uint8Array) || encoded.length % 2 !== 0 ||
+      !Number.isSafeInteger(expectedBytes) || expectedBytes < 0) {
+    throw new Error('compressed world-state shape');
+  }
   if (!encoded.length) {
     if (expectedBytes !== 0) throw new Error('compressed world-state length');
     return '';
@@ -137,6 +204,7 @@ export function encodeStoredEnvelope(envelope) {
     encoding: COMPRESSED_WORLD_STATE_ENCODING,
     uncompressedCharacters: text.length,
     uncompressedBytes: compressed.uncompressedBytes,
+    compressedBytes: compressed.compressedBytes,
     data: compressed.data
   });
 }
@@ -145,17 +213,26 @@ export function decodeStoredEnvelope(value) {
   if (value?.schema !== COMPRESSED_WORLD_STATE_STORAGE_SCHEMA) {
     return { envelope: value, encoding: 'json' };
   }
-  if (value.encoding !== COMPRESSED_WORLD_STATE_ENCODING ||
-      typeof value.data !== 'string') {
+  if (typeof value.data !== 'string') {
     throw new Error('compressed world-state encoding');
   }
-  const text = decompressText(value.data, value.uncompressedBytes);
+
+  let encoded;
+  if (value.encoding === COMPRESSED_WORLD_STATE_ENCODING) {
+    encoded = utf15ToBytes(value.data, value.compressedBytes);
+  } else if (value.encoding === LEGACY_COMPRESSED_WORLD_STATE_ENCODING) {
+    encoded = base64ToBytes(value.data);
+  } else {
+    throw new Error('compressed world-state encoding');
+  }
+
+  const text = decompressText(encoded, value.uncompressedBytes);
   if (text.length !== value.uncompressedCharacters) {
     throw new Error('compressed world-state character length');
   }
   return {
     envelope: JSON.parse(text),
-    encoding: COMPRESSED_WORLD_STATE_ENCODING
+    encoding: value.encoding
   };
 }
 

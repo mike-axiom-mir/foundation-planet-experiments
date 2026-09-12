@@ -1075,6 +1075,25 @@ Compression is a storage encoding, not encryption. If both writes fail, the
 prior revision remains authoritative and the UI/console report `SAVE FAILED`
 instead of silently displaying an unpersisted revision.
 
+### Durable browser checkpoint transport
+
+The later live Chromium gate measured the cumulative canonical checkpoint at
+about 91.57 million payload characters, proving that no alternative
+`localStorage` string encoding can make the current world fit its storage
+contract. Browser persistence now stores the unchanged world-state v2 envelope
+as one atomic IndexedDB record. World identity, lineage, revision, bounded
+journal and checksum semantics remain in the envelope rather than moving into
+the transport adapter.
+
+On first use, a valid v2 `localStorage` envelope is copied exactly into
+IndexedDB without inventing a revision; a v1 payload follows the existing
+explicit migration. The source bytes remain available as recovery evidence.
+An invalid or unreadable IndexedDB primary is held and blocks writes instead
+of falling back to older local state or starting a fresh lineage. IndexedDB is
+local durability, not synchronization, backup, multi-writer consensus or
+author authentication. Browsers without IndexedDB retain the previous
+`localStorage` path and its quota limit.
+
 ## Rung 53: bounded mixed-layer carbonate equilibrium
 
 Caelus now derives a read-only mixed-layer carbonate diagnostic from the
