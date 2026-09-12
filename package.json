@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node --check scripts/serve.mjs && node scripts/serve-selftest.mjs && node worlds/foundation-planet/world-state-storage-selftest.mjs && node worlds/foundation-planet/browser-world-state-selftest.mjs && node worlds/foundation-planet/browser-module-graph-selftest.mjs"
+    "test:rts": "node worlds/foundation-planet/rulesets/global-macro-rts/selftest.mjs",
+    "test": "node --check scripts/serve.mjs && node scripts/serve-selftest.mjs && node worlds/foundation-planet/world-state-storage-selftest.mjs && node worlds/foundation-planet/browser-world-state-selftest.mjs && node worlds/foundation-planet/browser-module-graph-selftest.mjs && npm run test:rts"
   },
   "engines": {
     "node": ">=18"
