@@ -777,6 +777,7 @@ let faunaObjects = [];
 let seasonalWeather = null, lastWeatherQuarter = -1, lastWeatherCoordinateKey = '', lastEcosystemAge = living.ageDays;
 let conditionTransitioning = false;
 let lastPersistenceFailure = null;
+let diagnosticSnapshot = null;
 let saveQueue = Promise.resolve();
 let currentProfile = CONDITION_PROFILES[state.profileId];
 let lastFrame = performance.now(), fpsFrames = 0, fpsSince = performance.now(), lastSaveAt = performance.now();
@@ -797,7 +798,8 @@ const ui = Object.fromEntries([
   'transportDomain','transportWater','transportClosure','airMassRoute','momentumClosure','rotationDeflection','kineticClosure','cloudPhaseChange','verticalAtmosphere','pressureColumn','convectiveExchange','buoyancyConversion','upperAirTransport','layerWindShear','geopotentialClosure','moistEnthalpyClosure',
   'atmosphereWater','atmosphereBiogeochemistry','atmosphereGasProfile','atmosphereGasTransport','integrityAudit','experienceSeam','runoffQueue','runoffBiogeochemistry','mineralSediment','runoffDestination','channelStorage','riverThermal','oceanMouthThermal','floodplainStorage','floodplainThermal','floodplainHabitat','floodEvents','floodplainSuccession','floodplainPlantMatter','floodplainPlantResources','floodplainDecomposition','floodplainRespiration','floodplainDenitrification','floodplainNitrification','floodplainGasExchange','channelChemistry','estuaryStorage','channelClosure','riverMouth',
   'populationChange','ageCohorts','migrationNet','activeFire','fps','speciesCount','speciesList','modeLabel',
-  'modeHelp','randomLand','freshwater','marineSurvey','resetView','scaleLabel','heading','loading','loadingStatus','loadingBar'
+  'modeHelp','randomLand','freshwater','marineSurvey','resetView','scaleLabel','heading','loading','loadingStatus','loadingBar',
+  'diagnostics','diagnosticSummary','diagnosticStatus','refreshDiagnostics'
 ].map(id => [id, document.getElementById(id)]));
 
 function absolutePlanetDay() {
@@ -1645,7 +1647,8 @@ function currentExperienceStatus() {
   };
 }
 
-function updateDiagnostics() {
+function captureDiagnostics() {
+  updateFrameRateReadout();
   ui.vegetationCount.textContent = layers.enabled('vegetation') ? (surface.sector?.vegetation.length || 0).toLocaleString() : 'OFF';
   ui.faunaCount.textContent = layers.enabled('fauna') ? String(surface.sector?.fauna.length || 0) : 'OFF';
   ui.riverCount.textContent = layers.enabled('hydrology') ? String(localHydrology?.summary.riverSegments || 0) : 'OFF';
@@ -2687,6 +2690,25 @@ function updateDiagnostics() {
   const livingActive = livingEnabled;
   ui.speciesCount.textContent = `${observed.length} ${livingActive ? 'species' : 'latent species'}`;
   ui.speciesList.innerHTML = observed.slice(0, 12).map(id => `<span>${speciesById(id)?.commonName || id}</span>`).join('');
+  diagnosticSnapshot = {
+    day: Math.floor(state.day) + 1,
+    year: state.year,
+    revision: worldState.descriptor().revision
+  };
+  ui.diagnosticStatus.textContent = `Current snapshot · Day ${diagnosticSnapshot.day}, Year ${diagnosticSnapshot.year} · state r${diagnosticSnapshot.revision}.`;
+  ui.refreshDiagnostics.removeAttribute('aria-busy');
+}
+
+function updateFrameRateReadout() {
+  const label = currentFps ? `${currentFps} fps` : '— fps';
+  ui.fps.textContent = currentFps ? `${currentFps} fps` : '—';
+  ui.diagnosticSummary.textContent = `On demand · ${label}`;
+}
+
+function updateDiagnostics(reason = 'world advanced') {
+  updateFrameRateReadout();
+  if (!diagnosticSnapshot) return;
+  ui.diagnosticStatus.textContent = `Captured Day ${diagnosticSnapshot.day}, Year ${diagnosticSnapshot.year} · ${reason} · refresh for current truth.`;
 }
 
 function updateModePresentation() {
@@ -2950,7 +2972,7 @@ function updateTime(dt) {
   if (surface.sector && seasonalWeather && ecosystemElapsed >= .25) {
     const result = living.updateSector(surface.sector, seasonalWeather, ecosystemElapsed);
     lastEcosystemAge = living.ageDays;
-    if (result) { updateDiagnostics(); applyEnvironmentVisuals(); }
+    if (result) { updateDiagnostics('living sector advanced'); applyEnvironmentVisuals(); }
   }
   const phase = state.day % 1;
   const angle = (phase - .25) * Math.PI * 2;
@@ -2985,7 +3007,7 @@ function frame(now) {
   fpsFrames++;
   if (now - fpsSince > 1000) {
     currentFps = Math.round(fpsFrames * 1000 / (now - fpsSince)); fpsFrames = 0; fpsSince = now;
-    updateDiagnostics();
+    updateDiagnostics('world clock advanced');
   }
   updateTime(dt);
   if (state.mode === 'orbit') {
@@ -3012,8 +3034,17 @@ function bindUI() {
   ui.freshwater.addEventListener('click', followFreshwater);
   ui.marineSurvey.addEventListener('click', surveyOcean);
   ui.resetView.addEventListener('click', resetView);
+  const refreshDiagnostics = () => {
+    ui.refreshDiagnostics.setAttribute('aria-busy', 'true');
+    ui.diagnosticStatus.textContent = 'Capturing current system truth… rendering may pause briefly.';
+    setTimeout(captureDiagnostics, 40);
+  };
+  ui.diagnostics.addEventListener('toggle', () => {
+    if (ui.diagnostics.open && !diagnosticSnapshot) refreshDiagnostics();
+  });
+  ui.refreshDiagnostics.addEventListener('click', refreshDiagnostics);
   layers.addEventListener('change', event => {
-    updateLayerVisibility(); updateDiagnostics();
+    updateLayerVisibility(); updateDiagnostics('layer state changed');
     saveNow('layer-state-change', { id: event.detail?.id, enabled: event.detail?.enabled, reason: event.detail?.reason });
   });
 
@@ -6050,7 +6081,6 @@ async function start() {
   updateLoading('Living-sector stream and controls', 86);
   setMode(state.mode, { skipSave: true, allowMarine: true });
   updateLayerVisibility();
-  updateDiagnostics();
   installWorldAPI();
   if (!savedEnvelope) {
     await saveNow('world-lineage-created', { version: '0.19.0' });
@@ -6063,10 +6093,12 @@ async function start() {
       `Restored from ${worldState.descriptor().backend}.`;
   }
   await refreshSharedHost();
+  captureDiagnostics();
   updateLoading('Foundation planet online', 100);
   state.ready = true;
   document.body.dataset.ready = 'true';
   setTimeout(() => ui.loading.classList.add('done'), 320);
+  lastSaveAt = performance.now();
   requestAnimationFrame(frame);
 }
 
