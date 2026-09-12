@@ -1,0 +1,140 @@
+.survey-experience {
+  margin: 0 0 12px;
+  padding: 10px 0 11px;
+  border-top: 1px solid rgba(159, 209, 209, 0.11);
+  border-bottom: 1px solid rgba(159, 209, 209, 0.11);
+}
+
+.survey-experience__state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.survey-experience__state span {
+  padding: 4px 6px;
+  border: 1px solid rgba(159, 209, 209, 0.15);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  font: 650 7px/1 ui-monospace, "Cascadia Mono", monospace;
+  letter-spacing: .1em;
+}
+
+.survey-experience[data-input="keyboard"] #surveyInputChip {
+  color: var(--cyan);
+  border-color: rgba(120, 203, 208, .36);
+  background: rgba(120, 203, 208, .07);
+}
+
+.survey-experience[data-input="gamepad"] #surveyInputChip {
+  color: var(--green);
+  border-color: var(--line-hot);
+  background: rgba(126, 228, 179, .07);
+}
+
+#surveyViewChip,
+#surveyLifeChip {
+  color: #b8cccb;
+}
+
+.survey-experience__message {
+  display: block;
+  min-height: 14px;
+  overflow-wrap: anywhere;
+  color: #d9e9e7;
+  font: 600 9px/1.45 ui-monospace, "Cascadia Mono", monospace;
+  letter-spacing: .025em;
+}
+
+.survey-experience.has-new-feedback .survey-experience__message {
+  animation: survey-feedback-arrive .65s ease-out;
+}
+
+.survey-experience__keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 8px;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.survey-experience__keys span {
+  white-space: nowrap;
+}
+
+.survey-experience kbd {
+  display: inline-grid;
+  min-width: 15px;
+  min-height: 15px;
+  place-items: center;
+  padding: 0 3px;
+  border: 1px solid rgba(159, 209, 209, .18);
+  border-bottom-color: rgba(159, 209, 209, .32);
+  border-radius: 4px;
+  background: rgba(1, 8, 11, .5);
+  color: #b9cece;
+  font: 650 7px/1 ui-monospace, "Cascadia Mono", monospace;
+}
+
+.survey-experience__pad {
+  display: block;
+  margin-top: 7px;
+  color: rgba(126, 228, 179, .48);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.mode-button:focus-visible,
+.life-master:focus-visible,
+.layer-toggle:focus-visible,
+.mission button:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(126, 228, 179, .09);
+}
+
+.mode-button.experience-command-flash,
+.life-master.experience-command-flash,
+.mission button.experience-command-flash {
+  animation: survey-command-ack .58s ease-out;
+}
+
+@keyframes survey-command-ack {
+  0% { box-shadow: 0 0 0 0 rgba(126, 228, 179, .42); }
+  100% { box-shadow: 0 0 0 9px rgba(126, 228, 179, 0); }
+}
+
+@keyframes survey-feedback-arrive {
+  0% { opacity: .45; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 760px) {
+  .survey-experience {
+    margin-bottom: 9px;
+    padding: 8px 0 9px;
+  }
+
+  .survey-experience__keys,
+  .survey-experience__pad {
+    display: none;
+  }
+
+  .survey-experience__message {
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .survey-experience.has-new-feedback .survey-experience__message,
+  .mode-button.experience-command-flash,
+  .life-master.experience-command-flash,
+  .mission button.experience-command-flash {
+    animation: none !important;
+  }
+}

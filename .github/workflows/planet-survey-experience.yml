@@ -1,0 +1,49 @@
+name: Planet survey experience gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  survey-experience:
+    name: Survey keyboard gamepad and responsive loop
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out exact PR state
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run inherited Planet gates first
+        run: npm test
+
+      - name: Check experience source syntax
+        run: |
+          node --check worlds/foundation-planet/experience-controls.mjs
+          node --check scripts/planet-experience-selftest.mjs
+
+      - name: Install pinned browser dependency
+        run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+
+      - name: Install Chromium runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Exercise real survey interaction surface
+        run: node scripts/planet-experience-selftest.mjs
+
+      - name: Preserve experience evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: planet-survey-experience-${{ github.run_id }}
+          path: .codex-temp-planet-experience/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
