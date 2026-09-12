@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { PLANET_DEFAULTS } from '../../core/planet-model.mjs';
+import { PLANET_DEFAULTS, sampleLatLon } from '../../core/planet-model.mjs';
 import {
   createSurfaceFrame,
   greatCircleDistanceM,
@@ -17,6 +17,11 @@ import {
   createGlobalGrid,
   peakControlGoldMultiplier
 } from './global-grid.mjs';
+import {
+  localGroundWorldPosition,
+  sampleLocalBatch,
+  sampleLocalSurface
+} from './surface-sampler.mjs';
 
 function approx(actual, expected, tolerance, label) {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: expected ${expected}, got ${actual}`);
@@ -58,6 +63,27 @@ approx(rebased.zM, 0, 1e-5, 'rebase north');
 assert.throws(
   () => projectLatLonToLocal(frame, frame.originLatDeg + 5, frame.originLonDeg, { enforceOperationalRadius: true }),
   /operational radius/
+);
+
+const directOriginSample = sampleLatLon(frame.originLatDeg, frame.originLonDeg);
+const flatOriginSample = sampleLocalSurface(frame, 0, 0);
+assert.equal(flatOriginSample.planet.biome, directOriginSample.biome);
+approx(flatOriginSample.planet.elevationM, directOriginSample.elevationM, 1e-9, 'flat/origin elevation');
+
+const sampledBatch = sampleLocalBatch(frame, [
+  { xM: 0, zM: 0 },
+  { xM: 1000, zM: 0 },
+  { xM: 0, zM: 1000 }
+]);
+assert.equal(sampledBatch.length, 3);
+assert.equal(sampledBatch[0].schema, 'axm.global-macro-rts.surface-sample/v0.1');
+
+const ground = localGroundWorldPosition(frame, 0, 0, { heightOffsetM: 2 });
+approx(
+  Math.hypot(ground.worldPosition.x, ground.worldPosition.y, ground.worldPosition.z),
+  PLANET_DEFAULTS.radiusM + directOriginSample.elevationM + 2,
+  1e-6,
+  'ground world radius'
 );
 
 const grid = createGlobalGrid();
