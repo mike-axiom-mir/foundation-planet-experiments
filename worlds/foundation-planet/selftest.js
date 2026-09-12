@@ -6,9 +6,11 @@ const crypto = require('crypto');
 const childProcess = require('child_process');
 const os = require('os');
 const { pathToFileURL } = require('url');
+const { loadWorkshopIntegration } = require('./selftest-workshop-boundary.js');
 
 const root = __dirname;
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const requireWorkshopIntegration = process.argv.includes('--require-workshop-integration');
 const stableReceiptDigest = value => {
   const text = JSON.stringify(value);
   let hash = 0x811c9dc5;
@@ -24,9 +26,13 @@ const resignReceipt = receipt => {
   return receipt;
 };
 const manifest = JSON.parse(read('world.manifest.json'));
-const registry = JSON.parse(fs.readFileSync(path.join(root, '..', 'world-registry.json'), 'utf8'));
 
 async function run() {
+  const workshopIntegration = loadWorkshopIntegration({
+    planetRoot: root,
+    configuredRoot: process.env.AXM_WORKSHOP_ROOT,
+    required: requireWorkshopIntegration
+  });
   const model = await import(pathToFileURL(path.join(root, 'core', 'planet-model.mjs')).href);
   const livingModule = await import(pathToFileURL(path.join(root, 'core', 'living-system.mjs')).href);
   const layerModule = await import(pathToFileURL(path.join(root, 'core', 'layer-system.mjs')).href);
@@ -245,9 +251,6 @@ async function run() {
     return layers.map(layer => layer.airTemperatureC - mean);
   };
   const html = read('index.html'), app = read('app.mjs'), styles = read('styles.css');
-  const server = fs.readFileSync(path.join(root, '..', '..', 'server.js'), 'utf8');
-  const operationsApi = fs.readFileSync(path.join(root, '..', '..', 'shared', 'operations', 'operations-api.js'), 'utf8');
-  const multiworldService = fs.readFileSync(path.join(root, '..', '..', 'shared', 'operations', 'multiworld-state-service.js'), 'utf8');
 
   assert.equal(surfaceControls.surfaceControlsDescription().schema, 'axm.foundation-planet.surface-controls/v1');
   const mouseLookRight = surfaceControls.applySurfaceLook({ yaw: 0, pitch: 0 }, { mouseX: 100 });
@@ -2539,8 +2542,10 @@ async function run() {
   assert.equal(manifest.truth.mirror_experience_connection_active, false);
   assert.equal(manifest.truth.holodeck_experience_connection_active, false);
   assert.equal(manifest.truth.experiment_world_connection_active, false);
-  assert.equal(registry.worlds.filter(world => world.id === manifest.id).length, 1, 'foundation planet registered exactly once');
-  assert.equal(registry.worlds.filter(world => world.id === 'world.grafthold.globe').length, 1, 'original living globe remains registered');
+  if (workshopIntegration.status === 'VERIFIED') {
+    assert.equal(workshopIntegration.registry.worlds.filter(world => world.id === manifest.id).length, 1, 'foundation planet registered exactly once');
+    assert.equal(workshopIntegration.registry.worlds.filter(world => world.id === 'world.grafthold.globe').length, 1, 'original living globe remains registered');
+  }
 
   assert.ok(html.includes('id="lifeMaster"'), 'living master UI');
   assert.ok(html.includes('./app.mjs?v=0.142.0-r142.2'),
@@ -3332,11 +3337,15 @@ async function run() {
   'Rung 142 exposes four transient closure-evidence acquisition request schemas through API v138 while preserving v137 through v116 and v68 continuity');
   assert.ok(app.includes('conditionTransitioning') && app.includes('if (conditionTransitioning && !force) return'), 'condition replacement cannot mix a new profile ID with the previous surface sample');
   assert.ok(app.includes('probeFoundationHost') && app.includes('proposeHostBootstrap') && app.includes('createSectorSubscription'), 'read-only API exposes explicit named-host proposals and sector subscriptions');
-  assert.ok(operationsApi.includes("'/api/living-worlds'") && operationsApi.includes("'/api/living-world/create'"), 'Workshop exposes named-world catalog and explicit creation endpoints');
-  assert.ok(multiworldService.includes("const CREATE_SCHEMA = 'axm.living-world.create/v1'") && multiworldService.includes("if (worldId === 'living-globe')"), 'multiworld service preserves the Living Globe compatibility slot');
+  if (workshopIntegration.status === 'VERIFIED') {
+    assert.ok(workshopIntegration.operationsApi.includes("'/api/living-worlds'") && workshopIntegration.operationsApi.includes("'/api/living-world/create'"), 'Workshop exposes named-world catalog and explicit creation endpoints');
+    assert.ok(workshopIntegration.multiworldService.includes("const CREATE_SCHEMA = 'axm.living-world.create/v1'") && workshopIntegration.multiworldService.includes("if (worldId === 'living-globe')"), 'multiworld service preserves the Living Globe compatibility slot');
+  }
   assert.ok(!/https?:\/\//.test(html + app + styles), 'no remote runtime dependency');
   assert.ok(!/Math\.random\(/.test(app + read('core/planet-model.mjs') + read('core/living-system.mjs')), 'world generation avoids unseeded randomness');
-  assert.ok(/["']\.mjs["']\s*:\s*["']text\/javascript; charset=utf-8["']/.test(server), 'Workshop serves planet modules with JavaScript MIME');
+  if (workshopIntegration.status === 'VERIFIED') {
+    assert.ok(/["']\.mjs["']\s*:\s*["']text\/javascript; charset=utf-8["']/.test(workshopIntegration.server), 'Workshop serves planet modules with JavaScript MIME');
+  }
 
   ['app.mjs', 'core/planet-model.mjs', 'core/layer-system.mjs', 'core/living-system.mjs', 'core/geophysics.mjs', 'core/hydrology-model.mjs', 'core/species-catalog.mjs', 'core/community-model.mjs', 'core/seasonal-weather.mjs', 'core/pressure-column.mjs', 'core/phase-thermal-envelope.mjs', 'core/atmosphere-boundary-energy.mjs', 'core/pressure-transport.mjs', 'core/surface-radiation.mjs', 'core/atmosphere-co2-radiation.mjs', 'core/atmosphere-biogeochemistry.mjs', 'core/atmosphere-biogeochemistry-vertical.mjs', 'core/atmosphere-biogeochemistry-transport.mjs', 'core/land-ecology.mjs', 'core/ocean-ecology.mjs', 'core/carbonate-system.mjs', 'core/air-sea-carbon-exchange.mjs', 'core/deep-ocean.mjs', 'core/river-chemistry.mjs', 'core/soil-biogeochemistry.mjs', 'core/land-hydrology-thermal.mjs', 'core/atmosphere-land-water-thermal.mjs', 'core/land-snow-thermal.mjs', 'core/land-snow-thermal-audit.mjs', 'core/snowmelt-cold-content.mjs', 'core/snowmelt-cold-content-audit.mjs', 'core/surface-snow-thermal.mjs', 'core/surface-snow-thermal-audit.mjs', 'core/runoff-thermal.mjs', 'core/geomorphic-sediment.mjs', 'core/floodplain.mjs', 'core/floodplain-thermal.mjs', 'core/river-thermal.mjs', 'core/ocean-mouth-thermal.mjs', 'core/floodplain-habitat.mjs', 'core/flood-event-history.mjs', 'core/floodplain-succession.mjs', 'core/floodplain-plant-matter.mjs', 'core/floodplain-plant-resources.mjs', 'core/floodplain-decomposition.mjs', 'core/floodplain-respiration.mjs', 'core/floodplain-denitrification.mjs', 'core/floodplain-nitrification.mjs', 'core/floodplain-gas-exchange.mjs', 'core/estuary-reactor.mjs', 'core/earth-system.mjs', 'core/earth-transport.mjs', 'core/basin-routing.mjs', 'core/system-audit.mjs', 'core/experience-protocol.mjs', 'core/ecosystem-dynamics.mjs', 'core/physics-contract.mjs', 'core/world-state.mjs', 'core/host-protocol.mjs', 'core/world-authority.mjs', 'core/groundwater-aquifer-matrix-thermal.mjs', 'core/groundwater-aquifer-matrix-thermal-audit.mjs', 'core/deep-soil-subsurface-matrix-thermal.mjs', 'core/deep-soil-subsurface-matrix-thermal-audit.mjs', 'core/surface-subsurface-matrix-thermal.mjs', 'core/surface-subsurface-matrix-thermal-audit.mjs', 'core/deep-aquifer-matrix-thermal.mjs', 'core/deep-aquifer-matrix-thermal-audit.mjs', 'core/vadose-matrix-thermal.mjs', 'core/vadose-matrix-thermal-audit.mjs', 'core/native-vadose-matrix-thermal-audit.mjs', 'core/matrix-thermal-aggregate.mjs', 'core/matrix-thermal-aggregate-audit.mjs', 'core/matrix-thermal-continuity.mjs', 'core/matrix-thermal-continuity-audit.mjs', 'core/matrix-thermal-continuity-witness.mjs', 'core/matrix-thermal-continuity-witness-audit.mjs', 'core/matrix-thermal-source-owner-ledger.mjs', 'core/matrix-thermal-source-owner-ledger-audit.mjs', 'core/matrix-thermal-initial-endowment.mjs', 'core/matrix-thermal-initial-endowment-audit.mjs'].forEach(file => {
     childProcess.execFileSync(process.execPath, ['--check', path.join(root, file)], { stdio: 'pipe' });
@@ -29954,6 +29963,11 @@ async function run() {
   assert.throws(() => capacityKernel.join({ participantId: 'two', seatId: 'seat-2', coordinate: { lat: 1, lon: 1 } }), /limit/, 'authority kernel enforces its participant cap');
 
   console.log(`foundation planet selftest: PASS (2,500+ assertions, ${biomes.size} biomes, ${plates.length} plates, ${drainageA.rivers.length} canonical river reaches, ${sharedReaches.length} shared across adjacent sectors, ${catalog.entryCount} species archetypes)`);
+  if (workshopIntegration.status === 'VERIFIED') {
+    console.log(`Workshop integration: PASS (${workshopIntegration.workshopRoot})`);
+  } else {
+    console.log('Workshop integration: SKIPPED (excluded from this standalone snapshot; set AXM_WORKSHOP_ROOT or pass --require-workshop-integration to require it)');
+  }
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });
