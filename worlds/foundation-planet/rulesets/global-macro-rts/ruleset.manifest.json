@@ -1,0 +1,26 @@
+{
+  "schema": "axm.foundation-planet.ruleset/v0.1",
+  "id": "ruleset.global-macro-rts",
+  "name": "Global Macro RTS",
+  "status": "EXPERIMENTAL",
+  "planet": "world.axm.foundation-planet",
+  "spatial_model": {
+    "canonical_global_position": "lat-lon-plus-unit-vector",
+    "unit_building_space": "bounded-flat-xz-surface-frame",
+    "global_control_grid": "equal-area-sin-latitude",
+    "default_operational_radius_m": 250000
+  },
+  "authority": {
+    "replaces_planet_model": false,
+    "owns_planet_state": false,
+    "may_promote_itself": false,
+    "canon_claim": false
+  },
+  "truth": {
+    "multiplayer_implemented": false,
+    "mass_macro_simulation_implemented": false,
+    "offline_guardian_implemented": false,
+    "browser_visual_integration_implemented": false,
+    "current_rung": "spatial-addressing-foundation"
+  }
+}
