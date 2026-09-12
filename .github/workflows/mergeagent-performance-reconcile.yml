@@ -1,0 +1,108 @@
+name: MergeAgent performance reconciliation
+
+on:
+  push:
+    branches: [mergeagent/performance-reconcile-20260912]
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: mergeagent/performance-reconcile-20260912
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch historical performance lane
+        run: git fetch origin automation/on-demand-diagnostics-20260909-1353
+      - name: Reconcile performance surface onto current app
+        shell: bash
+        run: |
+          git show origin/automation/on-demand-diagnostics-20260909-1353:worlds/foundation-planet/index.html > worlds/foundation-planet/index.html
+          git show origin/automation/on-demand-diagnostics-20260909-1353:worlds/foundation-planet/styles.css > worlds/foundation-planet/styles.css
+          git show origin/automation/on-demand-diagnostics-20260909-1353:worlds/foundation-planet/experience-performance-selftest.mjs > worlds/foundation-planet/experience-performance-selftest.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('worlds/foundation-planet/app.mjs')
+          text = path.read_text('utf-8')
+
+          def once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, found {count}')
+              text = text.replace(old, new, 1)
+
+          once(
+              "let lastPersistenceFailure = null;\nlet saveQueue = Promise.resolve();",
+              "let lastPersistenceFailure = null;\nlet diagnosticSnapshot = null;\nlet saveQueue = Promise.resolve();",
+              'diagnostic snapshot state',
+          )
+          once(
+              "  'modeHelp','randomLand','freshwater','marineSurvey','resetView','scaleLabel','heading','loading','loadingStatus','loadingBar'\n].map(id => [id, document.getElementById(id)]));",
+              "  'modeHelp','randomLand','freshwater','marineSurvey','resetView','scaleLabel','heading','loading','loadingStatus','loadingBar',\n  'diagnostics','diagnosticSummary','diagnosticStatus','refreshDiagnostics'\n].map(id => [id, document.getElementById(id)]));",
+              'diagnostic UI ids',
+          )
+          once(
+              "function updateDiagnostics() {\n  ui.vegetationCount.textContent",
+              "function captureDiagnostics() {\n  updateFrameRateReadout();\n  ui.vegetationCount.textContent",
+              'heavy diagnostic function',
+          )
+          once(
+              "  ui.speciesList.innerHTML = observed.slice(0, 12).map(id => `<span>${speciesById(id)?.commonName || id}</span>`).join('');\n}\n\nfunction updateModePresentation() {",
+              "  ui.speciesList.innerHTML = observed.slice(0, 12).map(id => `<span>${speciesById(id)?.commonName || id}</span>`).join('');\n  diagnosticSnapshot = {\n    day: Math.floor(state.day) + 1,\n    year: state.year,\n    revision: worldState.descriptor().revision\n  };\n  ui.diagnosticStatus.textContent = `Current snapshot · Day ${diagnosticSnapshot.day}, Year ${diagnosticSnapshot.year} · state r${diagnosticSnapshot.revision}.`;\n  ui.refreshDiagnostics.removeAttribute('aria-busy');\n}\n\nfunction updateFrameRateReadout() {\n  const label = currentFps ? `${currentFps} fps` : '— fps';\n  ui.fps.textContent = currentFps ? `${currentFps} fps` : '—';\n  ui.diagnosticSummary.textContent = `On demand · ${label}`;\n}\n\nfunction updateDiagnostics(reason = 'world advanced') {\n  updateFrameRateReadout();\n  if (!diagnosticSnapshot) return;\n  ui.diagnosticStatus.textContent = `Captured Day ${diagnosticSnapshot.day}, Year ${diagnosticSnapshot.year} · ${reason} · refresh for current truth.`;\n}\n\nfunction updateModePresentation() {",
+              'diagnostic split',
+          )
+          once(
+              "    if (result) { updateDiagnostics(); applyEnvironmentVisuals(); }",
+              "    if (result) { updateDiagnostics('living sector advanced'); applyEnvironmentVisuals(); }",
+              'living diagnostic mark',
+          )
+          once(
+              "    currentFps = Math.round(fpsFrames * 1000 / (now - fpsSince)); fpsFrames = 0; fpsSince = now;\n    updateDiagnostics();",
+              "    currentFps = Math.round(fpsFrames * 1000 / (now - fpsSince)); fpsFrames = 0; fpsSince = now;\n    updateDiagnostics('world clock advanced');",
+              'frame diagnostic mark',
+          )
+          once(
+              "  ui.resetView.addEventListener('click', resetView);\n  layers.addEventListener('change', event => {\n    updateLayerVisibility(); updateDiagnostics();",
+              "  ui.resetView.addEventListener('click', resetView);\n  const refreshDiagnostics = () => {\n    ui.refreshDiagnostics.setAttribute('aria-busy', 'true');\n    ui.diagnosticStatus.textContent = 'Capturing current system truth… rendering may pause briefly.';\n    setTimeout(captureDiagnostics, 40);\n  };\n  ui.diagnostics.addEventListener('toggle', () => {\n    if (ui.diagnostics.open && !diagnosticSnapshot) refreshDiagnostics();\n  });\n  ui.refreshDiagnostics.addEventListener('click', refreshDiagnostics);\n  layers.addEventListener('change', event => {\n    updateLayerVisibility(); updateDiagnostics('layer state changed');",
+              'diagnostic controls',
+          )
+          once(
+              "  updateLayerVisibility();\n  updateDiagnostics();\n  installWorldAPI();",
+              "  updateLayerVisibility();\n  installWorldAPI();",
+              'startup heavy diagnostic removal',
+          )
+          once(
+              "  await refreshSharedHost();\n  updateLoading('Foundation planet online', 100);",
+              "  await refreshSharedHost();\n  captureDiagnostics();\n  updateLoading('Foundation planet online', 100);",
+              'startup diagnostic capture',
+          )
+          once(
+              "  setTimeout(() => ui.loading.classList.add('done'), 320);\n  requestAnimationFrame(frame);",
+              "  setTimeout(() => ui.loading.classList.add('done'), 320);\n  lastSaveAt = performance.now();\n  requestAnimationFrame(frame);",
+              'checkpoint timer reset',
+          )
+          path.write_text(text, 'utf-8')
+          PY
+      - name: Verify reconciled performance contract
+        run: |
+          node --check worlds/foundation-planet/app.mjs
+          node worlds/foundation-planet/experience-performance-selftest.mjs
+          npm test
+      - name: Commit clean reconciliation
+        shell: bash
+        run: |
+          rm .github/workflows/mergeagent-performance-reconcile.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Reconcile on-demand diagnostics with IndexedDB runtime'
+          git push origin HEAD:mergeagent/performance-reconcile-20260912
