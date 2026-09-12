@@ -1,0 +1,78 @@
+name: Foundation Planet migration review experience
+
+on:
+  pull_request:
+    paths:
+      - 'packages/foundation-planet-sampler/**'
+      - 'tests/foundation-planet-sampler-migration-review*'
+      - '.github/workflows/foundation-planet-migration-review.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  review-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Require exact review head
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - name: Prepare verified sampler sources
+        run: node tools/prepare-foundation-planet-sampler.mjs
+      - name: Check review source syntax
+        run: |
+          node --check packages/foundation-planet-sampler/review.mjs
+          node --check packages/foundation-planet-sampler/cli.mjs
+          node --check tests/foundation-planet-sampler-migration-review.test.mjs
+          node --check tests/foundation-planet-sampler-migration-review-browser.mjs
+      - name: Prove migration review contract
+        run: node --test tests/foundation-planet-sampler-migration-review.test.mjs
+      - name: Preserve migration lineage prerequisite
+        run: node --test tests/foundation-planet-sampler-migration.test.mjs
+
+  chromium-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact review head
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - name: Prepare verified sampler sources
+        run: node tools/prepare-foundation-planet-sampler.mjs
+      - name: Prepare CI-only Chromium
+        env:
+          PLAYWRIGHT_ROOT: ${{ runner.temp }}/foundation-planet-playwright
+        run: |
+          mkdir -p "$PLAYWRIGHT_ROOT"
+          cd "$PLAYWRIGHT_ROOT"
+          npm init -y >/dev/null
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.63.0
+          ./node_modules/.bin/playwright install --with-deps chromium
+      - name: Exercise exact migration review surface
+        env:
+          PLAYWRIGHT_ROOT: ${{ runner.temp }}/foundation-planet-playwright
+          EVIDENCE_DIR: ${{ runner.temp }}/foundation-planet-migration-review
+          AXM_REVIEW_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node tests/foundation-planet-sampler-migration-review-browser.mjs
+      - name: Retain review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: foundation-planet-migration-review-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/foundation-planet-migration-review
+          if-no-files-found: error
+          retention-days: 14

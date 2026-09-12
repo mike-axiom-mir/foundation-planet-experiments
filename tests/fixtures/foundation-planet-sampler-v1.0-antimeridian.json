@@ -1,0 +1,52 @@
+{
+  "schema": "axm.foundation-planet.sample-receipt/v1",
+  "capability": { "id": "axm.foundation-planet.coordinate-sampler", "version": "1.0.0" },
+  "world": { "id": "world.axm.foundation-planet", "seed": 18470219, "modelSchema": "axm.foundation-planet.model/v1" },
+  "request": {
+    "schema": "axm.foundation-planet.sample-request/v1",
+    "profile": "temperate",
+    "coordinates": [{ "lat": 0, "lon": 180, "id": "east-antimeridian" }]
+  },
+  "samples": [{
+    "coordinate": { "lat": 0, "lon": 180, "id": "east-antimeridian" },
+    "sample": {
+      "elevationM": -4825.297690749261,
+      "temperatureC": 28.37570555011673,
+      "moisture": 1,
+      "annualPrecipMm": 0,
+      "biome": "deep_ocean",
+      "biomeLabel": "Deep ocean",
+      "color": "#071d35",
+      "habitability": 0,
+      "land": false,
+      "latitudeAbs": 0,
+      "continental": 0.30557998833449035,
+      "ridge": 0.13131915413328046,
+      "profile": "temperate",
+      "ecology": {
+        "realms": ["marine", "deep-marine"],
+        "productivity": 0.35779172497089035,
+        "freshwaterPotential": 0,
+        "marineProductivity": 0.35779172497089035,
+        "marineMixing": 0.33394779949109643,
+        "waterDepthM": 4825.297690749261,
+        "waterTemperatureC": 28.37570555011673,
+        "salinityPsu": 35
+      },
+      "geology": {
+        "plateId": "plate-05",
+        "secondaryPlateId": "plate-14",
+        "continentalCrust": false,
+        "crustAgeMyr": 207,
+        "boundaryProximity": 0.165254658820296,
+        "boundaryType": "convergent",
+        "relativeMotionCmYear": 11.975261896772809,
+        "bedrock": "oceanic basalt",
+        "soilDepthM": 0,
+        "erosionRisk": 0
+      }
+    }
+  }],
+  "authority": { "appliedState": false, "canonical": false, "scientificModel": false },
+  "integrity": { "algorithm": "sha256", "digest": "360e041d0b200a799a22be4875c4a0b66f0d80e351d54226b1a4ede63bf7adc6" }
+}

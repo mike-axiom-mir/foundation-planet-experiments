@@ -1,0 +1,39 @@
+{
+  "name": "axm-foundation-planet-sampler",
+  "version": "0.3.1",
+  "description": "Bounded offline sampler for the experimental AXM Foundation Planet model",
+  "type": "module",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./index.mjs",
+    "./capability": "./capability.json",
+    "./migration": "./migration.mjs",
+    "./migration-capability": "./migration-capability.json",
+    "./review": "./review.mjs"
+  },
+  "bin": {
+    "foundation-planet-sampler": "./cli.mjs"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY.json",
+    "PROVENANCE.json",
+    "capability.json",
+    "migration-capability.json",
+    "index.mjs",
+    "migration.mjs",
+    "review.mjs",
+    "cli.mjs",
+    "vendor/planet-model.mjs",
+    "vendor/geophysics.mjs"
+  ],
+  "scripts": {
+    "prepack": "node ../../tools/prepare-foundation-planet-sampler.mjs",
+    "postpack": "node ../../tools/prepare-foundation-planet-sampler.mjs --cleanup"
+  }
+}
