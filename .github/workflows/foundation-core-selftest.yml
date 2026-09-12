@@ -1,0 +1,34 @@
+name: Foundation selftest boundary
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  standalone-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check selftest syntax
+        run: |
+          node --check worlds/foundation-planet/selftest.js
+          node --check worlds/foundation-planet/selftest-workshop-boundary.js
+          node --check worlds/foundation-planet/selftest-workshop-boundary.test.js
+      - name: Verify standalone and strict integration admission
+        run: node worlds/foundation-planet/selftest-workshop-boundary.test.js
+      - name: Prove strict Workshop mode fails closed without Workshop files
+        shell: bash
+        run: |
+          if node worlds/foundation-planet/selftest.js --require-workshop-integration >strict.log 2>&1; then
+            echo 'strict mode unexpectedly passed without Workshop integration files'
+            exit 1
+          fi
+          grep -F 'Workshop integration unavailable' strict.log
