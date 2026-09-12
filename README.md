@@ -79,8 +79,10 @@ CANON authority.
 - `scripts/serve.mjs` — zero-dependency standalone local server
 
 This is a source snapshot of an uncommitted cumulative WIP state, not a claim
-that the recorded source commit contains every copied file. Nothing here is
-CANON unless Mike Tobi explicitly decides otherwise.
+that the recorded source commit contains every copied file. Nothing here becomes
+CANON merely because it exists, runs, or passes tests. AXM internal integration
+is evaluated through Truth, Agency / non-domination, Continuity, and Wisdom
+before speed; see `AGENTS.md`.
 
 
 ## Wider AXM map
