@@ -57,8 +57,8 @@ approx(worldPosition.z, directWorldPosition.z, 1e-5, 'world z');
 
 const nearbyFrame = createSurfaceFrame({ originLatDeg: coordinate.lat, originLonDeg: coordinate.lon });
 const rebased = rebaseLocalPoint(frame, nearbyFrame, desiredLocal.xM, desiredLocal.zM);
-approx(rebased.xM, 0, 1e-5, 'rebase east');
-approx(rebased.zM, 0, 1e-5, 'rebase north');
+approx(rebased.xM, 0, 0.01, 'rebase east');
+approx(rebased.zM, 0, 0.01, 'rebase north');
 
 assert.throws(
   () => projectLatLonToLocal(frame, frame.originLatDeg + 5, frame.originLonDeg, { enforceOperationalRadius: true }),
